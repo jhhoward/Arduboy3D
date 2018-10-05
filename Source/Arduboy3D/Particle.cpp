@@ -43,9 +43,11 @@ void ParticleSystem::Step()
 	}
 }
 
-void ParticleSystem::Draw(int x, int scale)
+void ParticleSystem::Draw(int x, int halfScale)
 {
-	scale *= 2;
+	int scale = 2 * halfScale;
+	int8_t horizon = GetHorizon(x);
+	
 	for (int n = 0; n < PARTICLES_PER_SYSTEM; n++)
 	{
 		Particle& p = particles[n];
@@ -55,9 +57,9 @@ void ParticleSystem::Draw(int x, int scale)
 			//int outX = x + ((p.x * scale) >> 8);
 			//int outY = HORIZON + ((p.y * scale) >> 8);
 			int outX = x + ((p.x * scale) >> 8);
-			int outY = HORIZON + ((p.y * scale) >> 8);
+			int outY = horizon + ((p.y * scale) >> 8);
 
-			if (outX >= 0 && outY >= 0 && outX < DISPLAY_WIDTH - 1 && outY < DISPLAY_HEIGHT - 1 && scale >= wBuffer[outX])
+			if (outX >= 0 && outY >= 0 && outX < DISPLAY_WIDTH - 1 && outY < DISPLAY_HEIGHT - 1 && halfScale >= wBuffer[outX])
 			{
 				PutPixel(outX, outY, COLOUR_BLACK);
 				PutPixel(outX + 1, outY, COLOUR_BLACK);

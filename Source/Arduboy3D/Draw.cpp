@@ -4,40 +4,57 @@
 #include "Game.h"
 #include "Particle.h"
 #include "FixedMath.h"
+#include "Map.h"
 
 #include "LUT.h"
+
+#define WITH_TEXTURES 1
+
+#if WITH_TEXTURES
 #include "Textures.h"
+#endif
 
 Camera camera;
 
-const uint8_t map[] PROGMEM =
-{
-	1, 1, 1, 1, 2, 1, 1, 1,
-	1, 0, 0, 0, 0, 0, 0, 1,
-	1, 0, 0, 0, 0, 3, 0, 1,
-	1, 0, 0, 0, 0, 0, 0, 1,
-	2, 0, 0, 0, 0, 0, 0, 1,
-	1, 0, 3, 0, 0, 0, 0, 1,
-	1, 0, 0, 0, 0, 0, 0, 2,
-	1, 1, 1, 1, 1, 2, 1, 1,
-};
-
 uint8_t wBuffer[DISPLAY_WIDTH];
 uint8_t wallIdBuffer[DISPLAY_WIDTH];
+int8_t horizonBuffer[DISPLAY_WIDTH];
 uint8_t currentWallId = 0;
 
+#if WITH_TEXTURES
 inline void DrawWallLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint8_t col)
 {
+//	if(x1 < 0 || y1 < 0 || x2 >= DISPLAY_WIDTH || y2 >= DISPLAY_HEIGHT)
+//		return;
+
+	if(x1 > x2)
+		return;
+	
 	if (y1 < 0)
 	{
+		if(y2 < 0)
+			return;
+		
 		if(y2 != y1)
 			x1 += (0 - y1) * (x2 - x1) / (y2 - y1);
 		y1 = 0;
 	}
+	if (y2 > DISPLAY_HEIGHT - 1)
+	{
+		if(y1 > DISPLAY_HEIGHT - 1)
+			return;
+		
+		if(y2 != y1)
+			x2 += (((DISPLAY_HEIGHT - 1) - y2) * (x1 - x2)) / (y1 - y2);
+		y2 = DISPLAY_HEIGHT - 1;
+	}
+	
 	if (x1 < 0)
 	{
 		if(x2 != x1)
-			y1 += (0 - x1) * (y2 - y1) / (x2 - x1);
+		{
+			y1 += ((0 - x1) * (y2 - y1)) / (x2 - x1);
+		}
 		x1 = 0;
 	}
 
@@ -60,12 +77,13 @@ inline void DrawWallLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint8_t
 
 	for (int x = x1; x <= x2 && x < DISPLAY_WIDTH; x++)
 	{
-		int w = y > HORIZON ? y - HORIZON : HORIZON - y;
-		bool drawSlice = wallIdBuffer[x] == currentWallId && wBuffer[x] >= w;
+		//int w = y > HORIZON ? y - HORIZON : HORIZON - y;
+		bool drawSlice = wallIdBuffer[x] == currentWallId;// && wBuffer[x] >= w;
+		int8_t horizon = horizonBuffer[x] - HORIZON;		
 
 		if (drawSlice)
 		{
-			PutPixel(x, y, col);
+			PutPixel(x, horizon + y, col);
 		}
 
 		yerror -= dy;
@@ -73,11 +91,15 @@ inline void DrawWallLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint8_t
 		while (yerror < 0)
 		{
 			y += ystep;
+			
+			//if(y < 0 || y >= DISPLAY_HEIGHT)
+			//	return;
+			
 			yerror += dx;
 
 			if (drawSlice && yerror < 0)
 			{
-				PutPixel(x, y, col);
+				PutPixel(x, horizon + y, col);
 			}
 
 			if (x == x2 && y == y2)
@@ -85,18 +107,22 @@ inline void DrawWallLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint8_t
 		}
 	}
 }
+#endif
 
-inline void DrawWallSegment(const uint8_t* texture, int16_t x1, int16_t w1, int16_t x2, int16_t w2, uint8_t u1clip, uint8_t u2clip, bool edgeLeft, bool edgeRight)
+#if WITH_TEXTURES
+inline void DrawWallSegment(const uint8_t* texture, int16_t x1, int16_t w1, int16_t x2, int16_t w2, uint8_t u1clip, uint8_t u2clip, bool edgeLeft, bool edgeRight, bool shadeEdge)
+#else
+inline void DrawWallSegment(int16_t x1, int16_t w1, int16_t x2, int16_t w2, bool edgeLeft, bool edgeRight, bool shadeEdge)
+#endif
 {
-	int16_t origX1 = x1;
-	int16_t origW1 = w1;
-	int16_t origDx = x2 - x1;
-
 	if (x1 < 0)
 	{
-		u1clip += (0 - x1) * (u2clip - u1clip) / (x2 - x1);
-		w1 += (0 - x1) * (w2 - w1) / (x2 - x1);
+#if WITH_TEXTURES
+		u1clip += ((int32_t)(0 - x1) * (int32_t)(u2clip - u1clip)) / (x2 - x1);
+#endif
+		w1 += ((int32_t)(0 - x1) * (int32_t)(w2 - w1)) / (x2 - x1);
 		x1 = 0;
+		edgeLeft = false;
 	}
 
 	int16_t dx = x2 - x1;
@@ -104,12 +130,6 @@ inline void DrawWallSegment(const uint8_t* texture, int16_t x1, int16_t w1, int1
 	int16_t w = w1;
 	int16_t dw;
 	int8_t wstep;
-
-	//if (viewZ1 < CLIP_PLANE)
-	//{
-	//	viewX1 += (CLIP_PLANE - viewZ1) * (viewX2 - viewX1) / (viewZ2 - viewZ1);
-	//	viewZ1 = CLIP_PLANE;
-	//}
 
 	currentWallId++;
 
@@ -124,32 +144,41 @@ inline void DrawWallSegment(const uint8_t* texture, int16_t x1, int16_t w1, int1
 		wstep = -1;
 	}
 
-	uint8_t wallColour = COLOUR_WHITE;
-	uint8_t edgeColour = COLOUR_BLACK;
+	constexpr uint8_t wallColour = COLOUR_WHITE;
+	constexpr uint8_t edgeColour = COLOUR_BLACK;
 
 	for (int x = x1; x < DISPLAY_WIDTH; x++)
 	{
 		bool drawSlice = x >= 0 && wBuffer[x] < w;
+		bool shadeSlice = shadeEdge && (x & 1) == 0;		
+		
+		int8_t horizon = horizonBuffer[x];
 
 		if (drawSlice)
 		{
-			uint8_t sliceColour = ((edgeLeft && x == x1) || (edgeRight && x == x2)) ? edgeColour : wallColour;
+			uint8_t sliceMask = 0xff;
+			uint8_t sliceColour = wallColour;
 
-			PutPixel(x, HORIZON, sliceColour);
-			for (int j = 1; j < w && j <= DISPLAY_HEIGHT / 2; j++)
+			if ((edgeLeft && x == x1) || (edgeRight && x == x2))
 			{
-				PutPixel(x, HORIZON + j, sliceColour);
-				PutPixel(x, HORIZON - j, sliceColour);
+				sliceMask = 0x00;
+				sliceColour = edgeColour;
+			}
+			else if (shadeSlice)
+			{
+				sliceMask = 0x55;
 			}
 
-			if (w <= DISPLAY_HEIGHT / 2)
-			{
-				PutPixel(x, HORIZON + w, edgeColour);
-				PutPixel(x, HORIZON - w, edgeColour);
-			}
+			int8_t extent = w > 64 ? 64 : w;
+			DrawVLine(x, horizon - extent, horizon + extent, sliceMask);
+			PutPixel(x, horizon + extent, edgeColour);
+			PutPixel(x, horizon - extent, edgeColour);
 
 			wallIdBuffer[x] = currentWallId;
-			wBuffer[x] = w;
+			if (w > 255)
+				wBuffer[x] = 255;
+			else
+				wBuffer[x] = w;
 		}
 
 		if (x == x2)
@@ -164,24 +193,32 @@ inline void DrawWallSegment(const uint8_t* texture, int16_t x1, int16_t w1, int1
 
 			if (drawSlice && werror < 0 && w <= DISPLAY_HEIGHT / 2)
 			{
-				PutPixel(x, HORIZON + w, edgeColour);
-				PutPixel(x, HORIZON - w, edgeColour);
+				PutPixel(x, horizon + w - 1, edgeColour);
+				PutPixel(x, horizon - w, edgeColour);
 			}
 		}
 	}
 
-	if (w1 < MIN_TEXTURE_DISTANCE || w2 < MIN_TEXTURE_DISTANCE || 1)
+#if WITH_TEXTURES
+	if (w1 < MIN_TEXTURE_DISTANCE || w2 < MIN_TEXTURE_DISTANCE || !texture)
+		return;
+	if(u1clip == u2clip)
 		return;
 
 	const uint8_t* texPtr = texture;
 	uint8_t numLines = pgm_read_byte(texPtr++);
 	while (numLines)
 	{
+		numLines--;
+		
 		uint8_t u1 = pgm_read_byte(texPtr++);
 		uint8_t v1 = pgm_read_byte(texPtr++);
 		uint8_t u2 = pgm_read_byte(texPtr++);
 		uint8_t v2 = pgm_read_byte(texPtr++);
 
+		//if(u1clip != 0 || u2clip != 128)
+		//	continue;
+		
 		if (u2 < u1clip || u1 > u2clip)
 			continue;
 
@@ -197,20 +234,25 @@ inline void DrawWallSegment(const uint8_t* texture, int16_t x1, int16_t w1, int1
 				v2 += (u2clip - u2) * (v1 - v2) / (u1 - u2);
 			u2 = u2clip;
 		}
+		
+		u1 = (128 * (u1 - u1clip)) / (u2clip - u1clip);
+		u2 = (128 * (u2 - u1clip)) / (u2clip - u1clip);
 
-		int outU1 = ((u1 * origDx) >> 7) + origX1;
-		int outU2 = ((u2 * origDx) >> 7) + origX1;
-		int interpw1 = ((u1 * (w2 - origW1)) >> 7) + origW1;
-		int interpw2 = ((u2 * (w2 - origW1)) >> 7) + origW1;
+		int16_t outU1 = (((int32_t)u1 * dx) >> 7) + x1;
+		int16_t outU2 = (((int32_t)u2 * dx) >> 7) + x1;
 
-		int outV1 = (interpw1 * v1 * 2) >> 7;
-		int outV2 = (interpw2 * v2 * 2) >> 7;
+		int16_t interpw1 = ((u1 * (w2 - w1)) >> 7) + w1;
+		int16_t interpw2 = ((u2 * (w2 - w1)) >> 7) + w1;
 
+		int16_t outV1 = (interpw1 * v1) >> 6;
+		int16_t outV2 = (interpw2 * v2) >> 6;
+
+		//uint8_t horizon = horizonBuffer[x]
 		//DrawLine(ScreenSurface, outU1, HORIZON - interpw1 + outV1, outU2, HORIZON - interpw2 + outV2, edgeColour, edgeColour, edgeColour);
 		DrawWallLine(outU1, HORIZON - interpw1 + outV1, outU2, HORIZON - interpw2 + outV2, edgeColour);
-
-		numLines--;
+		//DrawWallLine(outU1, -interpw1 + outV1, outU2, -interpw2 + outV2, edgeColour);
 	}
+#endif
 }
 
 inline bool isFrustrumClipped(int16_t x, int16_t y)
@@ -241,10 +283,16 @@ inline void TransformToScreenSpace(int16_t viewX, int16_t viewZ, int16_t* outX, 
 	*outX = (int16_t)((DISPLAY_WIDTH / 2) + *outX);
 }
 
-void DrawWall(const uint8_t* texture, int16_t x1, int16_t y1, int16_t x2, int16_t y2, bool edgeLeft, bool edgeRight)
+#if WITH_TEXTURES
+void DrawWall(const uint8_t* texture, int16_t x1, int16_t y1, int16_t x2, int16_t y2, bool edgeLeft, bool edgeRight, bool shadeEdge)
+#else
+void DrawWall(int16_t x1, int16_t y1, int16_t x2, int16_t y2, bool edgeLeft, bool edgeRight, bool shadeEdge)
+#endif
 {
 	int16_t viewX1, viewZ1, viewX2, viewZ2;
+#if WITH_TEXTURES
 	uint8_t u1 = 0, u2 = 128;
+#endif
 
 	TransformToViewSpace(x1, y1, &viewX1, &viewZ1);
 	TransformToViewSpace(x2, y2, &viewX2, &viewZ2);
@@ -261,14 +309,18 @@ void DrawWall(const uint8_t* texture, int16_t x1, int16_t y1, int16_t x2, int16_
 
 	if (viewZ1 < CLIP_PLANE)
 	{
+#if WITH_TEXTURES
 		u1 += (CLIP_PLANE - viewZ1) * (u2 - u1) / (viewZ2 - viewZ1);
+#endif
 		viewX1 += (CLIP_PLANE - viewZ1) * (viewX2 - viewX1) / (viewZ2 - viewZ1);
 		viewZ1 = CLIP_PLANE;
 		edgeLeft = false;
 	}
 	else if (viewZ2 < CLIP_PLANE)
 	{
-		u2 += (CLIP_PLANE - viewZ2) * (u2 - u1) / (viewZ1 - viewZ2);
+#if WITH_TEXTURES
+		u2 += (CLIP_PLANE - viewZ2) * (u1 - u2) / (viewZ1 - viewZ2);
+#endif
 		viewX2 += (CLIP_PLANE - viewZ2) * (viewX1 - viewX2) / (viewZ1 - viewZ2);
 		viewZ2 = CLIP_PLANE;
 		edgeRight = false;
@@ -288,29 +340,24 @@ void DrawWall(const uint8_t* texture, int16_t x1, int16_t y1, int16_t x2, int16_
 	int16_t w1 = (int16_t)((CELL_SIZE / 2 * NEAR_PLANE * CAMERA_SCALE) / viewZ1);
 	int16_t w2 = (int16_t)((CELL_SIZE / 2 * NEAR_PLANE * CAMERA_SCALE) / viewZ2);
 
-	DrawWallSegment(texture, sx1, w1, sx2, w2, u1, u2, edgeLeft, edgeRight);
-}
-
-bool IsBlocked(uint8_t x, uint8_t y)
-{
-	if (x >= MAP_SIZE || y >= MAP_SIZE)
-	{
-		return true;
-	}
-	return pgm_read_byte(&map[y * MAP_SIZE + x]) != 0;
+#if WITH_TEXTURES
+	DrawWallSegment(texture, sx1, w1, sx2, w2, u1, u2, edgeLeft, edgeRight, shadeEdge);
+#else
+	DrawWallSegment(sx1, w1, sx2, w2, edgeLeft, edgeRight, shadeEdge);
+#endif
 }
 
 void DrawCell(uint8_t x, uint8_t y)
 {
-	if (isFrustrumClipped(x, y))
+	if (!IsBlocked(x, y))
 	{
 		return;
 	}
 
-	uint8_t cellType = pgm_read_byte(&map[y * MAP_SIZE + x]);
-
-	if (!cellType)
+	if (isFrustrumClipped(x, y))
+	{
 		return;
+	}
 
 	int16_t x1 = x * CELL_SIZE;
 	int16_t y1 = y * CELL_SIZE;
@@ -322,26 +369,46 @@ void DrawCell(uint8_t x, uint8_t y)
 	bool blockedUp = IsBlocked(x, y - 1);
 	bool blockedDown = IsBlocked(x, y + 1);
 
+#if WITH_TEXTURES
+	uint8_t cellType = GetCellType(x, y);
 	const uint8_t* texture = (const uint8_t*) pgm_read_ptr(&textures[cellType - 1]);
+//	texture = nullptr;
+#endif
 
 	if (!blockedLeft && camera.x < x1)
 	{
-		DrawWall(texture, x1, y1, x1, y2, !blockedUp && camera.y > y1, !blockedDown && camera.y < y2);
+#if WITH_TEXTURES
+		DrawWall(texture, x1, y1, x1, y2, !blockedUp && camera.y > y1, !blockedDown && camera.y < y2, true);
+#else
+		DrawWall(x1, y1, x1, y2, !blockedUp && camera.y > y1, !blockedDown && camera.y < y2, true);
+#endif
 	}
 
 	if (!blockedDown && camera.y > y2)
 	{
-		DrawWall(texture, x1, y2, x2, y2, !blockedLeft && camera.x > x1, !blockedRight && camera.x < x2);
+#if WITH_TEXTURES
+		DrawWall(texture, x1, y2, x2, y2, !blockedLeft && camera.x > x1, !blockedRight && camera.x < x2, false);
+#else
+		DrawWall(x1, y2, x2, y2, !blockedLeft && camera.x > x1, !blockedRight && camera.x < x2, false);
+#endif
 	}
 
 	if (!blockedRight && camera.x > x2)
 	{
-		DrawWall(texture, x2, y2, x2, y1, !blockedDown && camera.y < y2, !blockedUp && camera.y > y1);
+#if WITH_TEXTURES
+		DrawWall(texture, x2, y2, x2, y1, !blockedDown && camera.y < y2, !blockedUp && camera.y > y1, true);
+#else
+		DrawWall(x2, y2, x2, y1, !blockedDown && camera.y < y2, !blockedUp && camera.y > y1, true);
+#endif
 	}
 
 	if (!blockedUp && camera.y < y1)
 	{
-		DrawWall(texture, x2, y1, x1, y1, !blockedRight && camera.x < x2, !blockedLeft && camera.x > x1);
+#if WITH_TEXTURES
+		DrawWall(texture, x2, y1, x1, y1, !blockedRight && camera.x < x2, !blockedLeft && camera.x > x1, false);
+#else
+		DrawWall(x2, y1, x1, y1, !blockedRight && camera.x < x2, !blockedLeft && camera.x > x1, false);
+#endif
 	}
 }
 
@@ -404,7 +471,7 @@ void DrawScaled2x(const uint8_t* data, int x, int y, uint8_t halfSize)
 		up = 0;
 		px = pgm_read_byte(&data[0]);
 
-		if (outX >= 0 && wBuffer[outX] < size)
+		if (outX >= 0 && wBuffer[outX] < halfSize)
 		{
 			int outY = y;
 
@@ -413,29 +480,32 @@ void DrawScaled2x(const uint8_t* data, int x, int y, uint8_t halfSize)
 				v2 = pgm_read_byte(&lut[(j + 1) / 2]);
 				down = pgm_read_byte(&data[v2 * BASE_SPRITE_SIZE + u1]);
 
-				if (px)
+				if (outY >= 0 && outY < DISPLAY_HEIGHT)
 				{
-					if (i == 0 || j == 0 || i == size - 1 || j == size - 1)
+					if (px)
 					{
-						PutPixel(outX, outY, COLOUR_BLACK);
-					}
-					else if (px == 2)
-					{
-						PutPixel(outX, outY, COLOUR_BLACK);
+						if (i == 0 || j == 0 || i == size - 1 || j == size - 1)
+						{
+							PutPixel(outX, outY, COLOUR_BLACK);
+						}
+						else if (px == 2)
+						{
+							PutPixel(outX, outY, COLOUR_BLACK);
+						}
+						else
+						{
+							PutPixel(outX, outY, COLOUR_WHITE);
+						}
 					}
 					else
 					{
-						PutPixel(outX, outY, COLOUR_WHITE);
-					}
-				}
-				else
-				{
-					uint8_t left = pgm_read_byte(&data[v1 * BASE_SPRITE_SIZE + u0]);
-					uint8_t right = pgm_read_byte(&data[v1 * BASE_SPRITE_SIZE + u2]);
+						uint8_t left = pgm_read_byte(&data[v1 * BASE_SPRITE_SIZE + u0]);
+						uint8_t right = pgm_read_byte(&data[v1 * BASE_SPRITE_SIZE + u2]);
 
-					if (up | down | left | right)
-					{
-						PutPixel(outX, outY, COLOUR_BLACK);
+						if (up | down | left | right)
+						{
+							PutPixel(outX, outY, COLOUR_BLACK);
+						}
 					}
 				}
 
@@ -488,7 +558,7 @@ void DrawScaled(const uint8_t* data, int x, int y, uint8_t halfSize)
 		up = 0;
 		px = pgm_read_byte(&data[0]);
 
-		if (outX >= 0 && wBuffer[outX] < size)
+		if (outX >= 0 && wBuffer[outX] < halfSize)
 		{
 			int outY = y;
 
@@ -538,6 +608,15 @@ void DrawScaled(const uint8_t* data, int x, int y, uint8_t halfSize)
 	}
 }
 
+inline int8_t GetHorizon(int16_t x)
+{
+	if (x < 0)
+		x = 0;
+	if (x >= DISPLAY_WIDTH)
+		x = DISPLAY_WIDTH - 1;
+	return horizonBuffer[x];
+}
+
 void DrawObject(int16_t x, int16_t y)
 {
 	int16_t relX, relZ;
@@ -556,7 +635,7 @@ void DrawObject(int16_t x, int16_t y)
 
 	TransformToScreenSpace(relX, relZ, &screenX, &screenW);
 
-	DrawScaled(testSprite, screenX - screenW, HORIZON - screenW, (uint8_t) screenW);
+	DrawScaled(testSprite, screenX - screenW, GetHorizon(screenX) - screenW, (uint8_t) screenW);
 }
 
 void DrawParticleSystem(ParticleSystem* system, int16_t x, int16_t y)
@@ -584,21 +663,14 @@ ParticleSystem testParticles;
 
 void Render()
 {
-	for (int y = 0; y < DISPLAY_HEIGHT; y++)
-	{
-		for (int x = 0; x < DISPLAY_WIDTH; x++)
-		{
-			uint8_t col = y < DISPLAY_HEIGHT / 2 ? (x | y) & 1 ? COLOUR_BLACK : COLOUR_WHITE : (x ^ y) & 1 ? COLOUR_BLACK : COLOUR_WHITE; //192;
-																								 //col = 192;
-			PutPixel(x, y, col);
-		}
-	}
+	DrawBackground();
 	
 	currentWallId = 0;
 	for (uint8_t n = 0; n < DISPLAY_WIDTH; n++)
 	{
 		wallIdBuffer[n] = 0;
 		wBuffer[n] = 0;
+		horizonBuffer[n] = HORIZON + (((DISPLAY_WIDTH / 2 - n) * camera.tilt) >> 8);
 	}
 
 	camera.cellX = camera.x / CELL_SIZE;
@@ -609,11 +681,23 @@ void Render()
 	camera.clipCos = FixedCos(-camera.angle + CLIP_ANGLE);
 	camera.clipSin = FixedSin(-camera.angle + CLIP_ANGLE);
 
+#if !WITH_TEXTURES
+	uint8_t doorX = 3;
+	uint8_t doorY = 4;
+	DrawWall(doorX * CELL_SIZE + CELL_SIZE / 2, doorY * CELL_SIZE, 
+			 doorX * CELL_SIZE + CELL_SIZE / 2, doorY * CELL_SIZE + CELL_SIZE / 2, true, true, false);
+	DrawWall(doorX * CELL_SIZE + CELL_SIZE / 2, doorY * CELL_SIZE + CELL_SIZE / 2,
+			 doorX * CELL_SIZE + CELL_SIZE / 2, doorY * CELL_SIZE + CELL_SIZE, true, true, false);
+	DrawWall(doorX * CELL_SIZE + CELL_SIZE / 2, doorY * CELL_SIZE + CELL_SIZE / 2, 
+			 doorX * CELL_SIZE + CELL_SIZE / 2, doorY * CELL_SIZE, true, true, false);
+	DrawWall(doorX * CELL_SIZE + CELL_SIZE / 2, doorY * CELL_SIZE + CELL_SIZE,
+			 doorX * CELL_SIZE + CELL_SIZE / 2, doorY * CELL_SIZE + CELL_SIZE / 2, true, true, false);
+#endif
 
 	DrawCells();
 
-	DrawObject(3 * CELL_SIZE, 3 * CELL_SIZE);
-	DrawObject(5 * CELL_SIZE, 4 * CELL_SIZE);
+	DrawObject(3 * CELL_SIZE + CELL_SIZE / 2, 1 * CELL_SIZE + CELL_SIZE / 2);
+	DrawObject(1 * CELL_SIZE + CELL_SIZE / 2, 5 * CELL_SIZE + CELL_SIZE / 2);
 
 	static int counter = 0;
 	counter++;
@@ -623,6 +707,5 @@ void Render()
 		counter = 0;
 	}
 	testParticles.Step();
-	DrawParticleSystem(&testParticles, 5 * CELL_SIZE, 5 * CELL_SIZE);
-
+	DrawParticleSystem(&testParticles, 1 * CELL_SIZE + CELL_SIZE / 2, 1 * CELL_SIZE + CELL_SIZE / 2);
 }

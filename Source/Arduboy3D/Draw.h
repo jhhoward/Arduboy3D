@@ -8,10 +8,11 @@ struct Camera
 	int16_t rotCos, rotSin;
 	int16_t clipCos, clipSin;
 	uint8_t cellX, cellY;
+	int8_t tilt;
 };
 
 extern uint8_t wBuffer[];
 extern Camera camera;
 
 void Render(void);
-
+inline int8_t GetHorizon(int16_t x);

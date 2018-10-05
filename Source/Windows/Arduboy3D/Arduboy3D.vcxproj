@@ -120,6 +120,7 @@
     <ClCompile Include="..\..\Arduboy3D\FixedMath.cpp" />
     <ClCompile Include="..\..\Arduboy3D\Font.cpp" />
     <ClCompile Include="..\..\Arduboy3D\Game.cpp" />
+    <ClCompile Include="..\..\Arduboy3D\Map.cpp" />
     <ClCompile Include="..\..\Arduboy3D\Particle.cpp" />
     <ClCompile Include="lodepng.cpp" />
     <ClCompile Include="WinMain.cpp" />
@@ -131,6 +132,7 @@
     <ClInclude Include="..\..\Arduboy3D\Font.h" />
     <ClInclude Include="..\..\Arduboy3D\Game.h" />
     <ClInclude Include="..\..\Arduboy3D\LUT.h" />
+    <ClInclude Include="..\..\Arduboy3D\Map.h" />
     <ClInclude Include="..\..\Arduboy3D\Particle.h" />
     <ClInclude Include="..\..\Arduboy3D\Textures.h" />
     <ClInclude Include="lodepng.h" />
