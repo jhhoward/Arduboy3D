@@ -4,6 +4,10 @@
 #include "Draw.h"
 #include "Map.h"
 
+#define USE_ROTATE_BOB 0
+#define STRAFE_TILT 14
+#define ROTATE_TILT 2
+
 int16_t cameraVelocityX;
 int16_t cameraVelocityY;
 
@@ -110,6 +114,8 @@ void TickGame()
 	int8_t targetTilt = 0;
 	int8_t moveDelta = 0;
 	int8_t strafeDelta = 0;
+	static uint8_t shakeTime = 0;
+	static uint8_t reloadTime = 0;
 
 	if(input & INPUT_A)
 	{
@@ -134,6 +140,18 @@ void TickGame()
 		}
 	}
 
+	if (reloadTime > 0)
+	{
+		reloadTime--;
+	}
+	else if (input & INPUT_B)
+	{
+		reloadTime = 13;
+		shakeTime = 8;
+		if(!moveDelta)
+			moveDelta -= 5;
+	}
+
 	if (cameraAngularVelocity < turnDelta)
 	{
 		cameraAngularVelocity++;
@@ -156,7 +174,7 @@ void TickGame()
 
 	static int tiltTimer = 0;
 	tiltTimer++;
-	if (moveDelta)
+	if (moveDelta && USE_ROTATE_BOB)
 	{
 		targetTilt = (int8_t)(FixedSin(tiltTimer * 10) / 32);
 	}
@@ -165,8 +183,16 @@ void TickGame()
 		targetTilt = 0;
 	}
 
-	targetTilt += cameraAngularVelocity * 3;
-	targetTilt += strafeDelta * 14;
+	targetTilt += cameraAngularVelocity * ROTATE_TILT;
+	targetTilt += strafeDelta * STRAFE_TILT;
+	int8_t targetBob = moveDelta || strafeDelta ? FixedSin(tiltTimer * 10) / 128 : 0;
+
+	if (shakeTime > 0)
+	{
+		shakeTime--;
+		targetBob += (Random() & 3) - 1;
+		targetTilt += (Random() & 31) - 16;
+	}
 
 	constexpr int tiltRate = 6;
 
@@ -186,7 +212,25 @@ void TickGame()
 			camera.tilt = targetTilt;
 		}
 	}
-		
+
+	constexpr int bobRate = 3;
+
+	if (camera.bob < targetBob)
+	{
+		camera.bob += bobRate;
+		if (camera.bob > targetBob)
+		{
+			camera.bob = targetBob;
+		}
+	}
+	else if (camera.bob > targetBob)
+	{
+		camera.bob -= bobRate;
+		if (camera.bob < targetBob)
+		{
+			camera.bob = targetBob;
+		}
+	}
 
 	int16_t cosAngle = FixedCos(camera.angle);
 	int16_t sinAngle = FixedSin(camera.angle);
@@ -206,6 +250,5 @@ void TickGame()
 
 	MoveCamera(&camera, cameraVelocityX / 4, cameraVelocityY / 4);
 	
-
 	Render();
 }

@@ -423,7 +423,28 @@ void DrawCells()
 	}
 }
 
+
 const uint8_t testSprite[] PROGMEM =
+{
+	0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 1, 2, 1, 2, 1, 0, 0, 0, 0, 0,
+	0, 0, 2, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
+	0, 0, 2, 0, 0, 0, 0, 1, 2, 1, 0, 0, 0, 0, 0, 0,
+	0, 0, 2, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0,
+	0, 0, 2, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0,
+	0, 0, 2, 0, 1, 0, 0, 0, 1, 0, 0, 2, 2, 2, 2, 0,
+	0, 0, 2, 1, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 0,
+	0, 2, 2, 2, 0, 0, 0, 0, 1, 0, 0, 2, 2, 2, 2, 0,
+	0, 0, 2, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 0,
+	0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 2, 2, 2, 2, 0,
+	0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 2, 2, 2, 2, 0,
+	0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0,
+};
+
+const uint8_t testSprite2[] PROGMEM =
 {
 	0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
 	0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
@@ -443,12 +464,95 @@ const uint8_t testSprite[] PROGMEM =
 	0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
 };
 
+#if 0
+void DrawScaled4x(const uint8_t* data, int x, int y, uint8_t halfSize)
+{
+	uint8_t size = 2 * halfSize;
+
+	if (size > MAX_SPRITE_SIZE * 4)
+	{
+		return;
+	}
+
+	const uint8_t* lut = scaleLUT + ((halfSize / 4) * (halfSize / 4));
+
+	uint8_t u0 = 0;
+	uint8_t u1 = 0;
+	uint8_t u2;
+	uint8_t up, px, down;
+	int outX = x;
+
+	for (int i = 0; i < size && outX < DISPLAY_WIDTH; i++)
+	{
+		uint8_t v0 = 0;
+		uint8_t v1 = 0;
+		uint8_t v2;
+
+		u2 = pgm_read_byte(&lut[(i + 1) / 4]);
+
+		up = 0;
+		px = pgm_read_byte(&data[0]);
+
+		if (outX >= 0 && wBuffer[outX] < halfSize)
+		{
+			int outY = y;
+
+			for (int j = 0; j < size && outY < DISPLAY_HEIGHT; j++)
+			{
+				v2 = pgm_read_byte(&lut[(j + 1) / 4]);
+				down = pgm_read_byte(&data[v2 * BASE_SPRITE_SIZE + u1]);
+
+				if (outY >= 0 && outY < DISPLAY_HEIGHT)
+				{
+					if (px)
+					{
+						if (i == 0 || j == 0 || i == size - 1 || j == size - 1)
+						{
+							PutPixel(outX, outY, COLOUR_BLACK);
+						}
+						else if (px == 2)
+						{
+							PutPixel(outX, outY, COLOUR_BLACK);
+						}
+						else
+						{
+							PutPixel(outX, outY, COLOUR_WHITE);
+						}
+					}
+					else
+					{
+						uint8_t left = pgm_read_byte(&data[v1 * BASE_SPRITE_SIZE + u0]);
+						uint8_t right = pgm_read_byte(&data[v1 * BASE_SPRITE_SIZE + u2]);
+
+						if ((up | down | left | right) & 1)
+						{
+							PutPixel(outX, outY, COLOUR_BLACK);
+						}
+					}
+				}
+
+				v0 = v1;
+				v1 = v2;
+
+				up = px;
+				px = down;
+				outY++;
+			}
+		}
+
+		u0 = u1;
+		u1 = u2;
+		outX++;
+	}
+}
+
 void DrawScaled2x(const uint8_t* data, int x, int y, uint8_t halfSize)
 {
 	uint8_t size = 2 * halfSize;
 
 	if (size > MAX_SPRITE_SIZE * 2)
 	{
+		DrawScaled4x(data, x, y, halfSize);
 		return;
 	}
 
@@ -502,7 +606,7 @@ void DrawScaled2x(const uint8_t* data, int x, int y, uint8_t halfSize)
 						uint8_t left = pgm_read_byte(&data[v1 * BASE_SPRITE_SIZE + u0]);
 						uint8_t right = pgm_read_byte(&data[v1 * BASE_SPRITE_SIZE + u2]);
 
-						if (up | down | left | right)
+						if ((up | down | left | right) & 1)
 						{
 							PutPixel(outX, outY, COLOUR_BLACK);
 						}
@@ -587,7 +691,7 @@ void DrawScaled(const uint8_t* data, int x, int y, uint8_t halfSize)
 					uint8_t left = pgm_read_byte(&data[v1 * BASE_SPRITE_SIZE + u0]);
 					uint8_t right = pgm_read_byte(&data[v1 * BASE_SPRITE_SIZE + u2]);
 
-					if (up | down | left | right)
+					if ((up | down | left | right) & 1)
 					{
 						PutPixel(outX, outY, COLOUR_BLACK);
 					}
@@ -607,6 +711,112 @@ void DrawScaled(const uint8_t* data, int x, int y, uint8_t halfSize)
 		outX++;
 	}
 }
+
+#else
+
+template<int scaleMultiplier>
+inline void DrawScaledTx(const uint8_t* data, int8_t x, int8_t y, uint8_t halfSize)
+{
+	uint8_t size = 2 * halfSize;
+	const uint8_t* lut = scaleLUT + ((halfSize / scaleMultiplier) * (halfSize / scaleMultiplier));
+
+	uint8_t u0 = 0;
+	uint8_t u1 = 0;
+	uint8_t u2;
+	uint8_t up, px, down;
+	int8_t outX = x;
+
+	for (uint8_t i = 0; i < size && outX < DISPLAY_WIDTH; i++)
+	{
+		uint8_t v0 = 0;
+		uint8_t v1 = 0;
+		uint8_t v2;
+
+		u2 = pgm_read_byte(&lut[(i + 1) / scaleMultiplier]);
+
+		up = 0;
+		px = pgm_read_byte(&data[0]);
+
+		if (outX >= 0 && wBuffer[outX] < halfSize)
+		{
+			int8_t outY = y;
+
+			for (uint8_t j = 0; j < size && outY < DISPLAY_HEIGHT; j++)
+			{
+				v2 = pgm_read_byte(&lut[(j + 1) / scaleMultiplier]);
+				down = pgm_read_byte(&data[v2 * BASE_SPRITE_SIZE + u1]);
+
+				if (outY >= 0)
+				{
+					if (px)
+					{
+						if (i == 0 || j == 0 || i == size - 1 || j == size - 1)
+						{
+							PutPixel(outX, outY, COLOUR_BLACK);
+						}
+						else if (px == 2)
+						{
+							PutPixel(outX, outY, COLOUR_BLACK);
+						}
+						else
+						{
+							PutPixel(outX, outY, COLOUR_WHITE);
+						}
+					}
+					else
+					{
+						uint8_t left = pgm_read_byte(&data[v1 * BASE_SPRITE_SIZE + u0]);
+						uint8_t right = pgm_read_byte(&data[v1 * BASE_SPRITE_SIZE + u2]);
+
+						if ((up | down | left | right) & 1)
+						{
+							PutPixel(outX, outY, COLOUR_BLACK);
+						}
+					}
+				}
+
+				v0 = v1;
+				v1 = v2;
+
+				up = px;
+				px = down;
+				outY++;
+			}
+		}
+
+		u0 = u1;
+		u1 = u2;
+		outX++;
+	}
+}
+
+void DrawScaled(const uint8_t* data, int8_t x, int8_t y, uint8_t halfSize)
+{
+	uint8_t size = 2 * halfSize;
+
+	if (size > MAX_SPRITE_SIZE * 8)
+	{
+		return;
+	}
+	else if (size > MAX_SPRITE_SIZE * 4)
+	{
+		DrawScaledTx<8>(data, x, y, halfSize);
+	}
+	else if (size > MAX_SPRITE_SIZE * 2)
+	{
+		DrawScaledTx<4>(data, x, y, halfSize);
+	}
+	else if (size > MAX_SPRITE_SIZE)
+	{
+		DrawScaledTx<2>(data, x, y, halfSize);
+	}
+	else if(halfSize >= 2)
+	{
+		DrawScaledTx<1>(data, x, y, halfSize);
+	}
+}
+	
+#endif
 
 inline int8_t GetHorizon(int16_t x)
 {
@@ -670,7 +880,7 @@ void Render()
 	{
 		wallIdBuffer[n] = 0;
 		wBuffer[n] = 0;
-		horizonBuffer[n] = HORIZON + (((DISPLAY_WIDTH / 2 - n) * camera.tilt) >> 8);
+		horizonBuffer[n] = HORIZON + (((DISPLAY_WIDTH / 2 - n) * camera.tilt) >> 8) + camera.bob;
 	}
 
 	camera.cellX = camera.x / CELL_SIZE;

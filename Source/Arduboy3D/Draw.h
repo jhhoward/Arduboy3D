@@ -9,6 +9,7 @@ struct Camera
 	int16_t clipCos, clipSin;
 	uint8_t cellX, cellY;
 	int8_t tilt;
+	int8_t bob;
 };
 
 extern uint8_t wBuffer[];
