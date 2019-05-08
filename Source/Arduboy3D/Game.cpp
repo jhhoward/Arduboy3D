@@ -6,7 +6,7 @@
 
 #define USE_ROTATE_BOB 0
 #define STRAFE_TILT 14
-#define ROTATE_TILT 2
+#define ROTATE_TILT 3
 
 int16_t cameraVelocityX;
 int16_t cameraVelocityY;

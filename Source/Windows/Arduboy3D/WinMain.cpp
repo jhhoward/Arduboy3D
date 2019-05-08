@@ -173,7 +173,7 @@ uint8_t GetPixel(uint8_t x, uint8_t y)
 	return (sBuffer[(row*DISPLAY_WIDTH) + x] & (1 << bit_position)) >> bit_position;
 }
 
-uint8_t* GetBuffer()
+uint8_t* GetScreenBuffer()
 {
 	return sBuffer;
 }
@@ -280,6 +280,21 @@ uint8_t GetInput()
 	return inputMask;
 }
 
+void DebugDisplayNow()
+{
+	ResolveScreen(ScreenSurface);
+	SDL_UpdateTexture(ScreenTexture, NULL, ScreenSurface->pixels, ScreenSurface->pitch);
+	SDL_Rect src, dest;
+	src.x = src.y = dest.x = dest.y = 0;
+	src.w = DISPLAY_WIDTH;
+	src.h = DISPLAY_HEIGHT;
+	dest.w = DISPLAY_WIDTH;
+	dest.h = DISPLAY_HEIGHT;
+	SDL_RenderCopy(AppRenderer, ScreenTexture, &src, &dest);
+	SDL_RenderPresent(AppRenderer);
+
+	SDL_Delay(1000 / TARGET_FRAMERATE);
+}
 
 int main(int argc, char* argv[])
 {

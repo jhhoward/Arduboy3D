@@ -16,4 +16,4 @@ extern uint8_t wBuffer[];
 extern Camera camera;
 
 void Render(void);
-inline int8_t GetHorizon(int16_t x);
+int8_t GetHorizon(int16_t x);

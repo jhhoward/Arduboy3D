@@ -91,6 +91,11 @@ void DrawVLine(uint8_t x, int8_t y0_, int8_t y1_, uint8_t pattern)
   }
 }
 
+uint8_t* GetScreenBuffer()
+{
+  return arduboy.getBuffer();
+}
+
 
 void DrawBackground()
 {
@@ -164,7 +169,7 @@ void setup()
   arduboy.flashlight();
   arduboy.systemButtons();
   arduboy.bootLogo();
-  arduboy.setFrameRate(30);
+  arduboy.setFrameRate(TARGET_FRAMERATE);
 
   //Serial.begin(9600);
 
@@ -173,11 +178,28 @@ void setup()
 
 void loop()
 {
+#if DEV_MODE
   if(arduboy.nextFrameDEV())
+#else
+  if(arduboy.nextFrame())
+#endif
   {
     TickGame();
     
     //Serial.write(arduboy.getBuffer(), 128 * 64 / 8);
+
+#if DEV_MODE
+	// CPU load bar graph	
+	int load = arduboy.cpuLoad();
+	uint8_t* screenPtr = arduboy.getBuffer();
+	
+	for(int x = 0; x < load && x < 128; x++)
+	{
+		screenPtr[x] = (screenPtr[x] & 0xf8) | 3;
+	}
+	screenPtr[100] = 0;
+#endif
+	
     arduboy.display(false);
   }
 }

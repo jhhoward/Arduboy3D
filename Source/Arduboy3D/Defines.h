@@ -23,6 +23,7 @@
 #endif
 
 #define TARGET_FRAMERATE 30
+#define DEV_MODE 0
 
 #define INPUT_LEFT 1
 #define INPUT_RIGHT 2
