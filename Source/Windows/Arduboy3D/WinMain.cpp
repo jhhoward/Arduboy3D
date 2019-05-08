@@ -15,6 +15,7 @@ SDL_Surface* ScreenSurface;
 SDL_Texture* ScreenTexture;
 
 uint8_t InputMask = 0;
+uint8_t sBuffer[DISPLAY_WIDTH * DISPLAY_HEIGHT / 8];
 
 bool IsRecording = false;
 int CurrentRecordingFrame = 0;
@@ -155,6 +156,53 @@ void PutPixel(uint8_t x, uint8_t y, uint8_t colour)
 		return;
 	}
 
+	uint16_t row_offset;
+	uint8_t bit;
+
+	bit = 1 << (y & 7);
+	row_offset = (y & 0xF8) * DISPLAY_WIDTH / 8 + x;
+	uint8_t data = sBuffer[row_offset] | bit;
+	if (!colour) data ^= bit;
+	sBuffer[row_offset] = data;
+}
+
+uint8_t GetPixel(uint8_t x, uint8_t y)
+{
+	uint8_t row = y / 8;
+	uint8_t bit_position = y % 8;
+	return (sBuffer[(row*DISPLAY_WIDTH) + x] & (1 << bit_position)) >> bit_position;
+}
+
+uint8_t* GetScreenBuffer()
+{
+	return sBuffer;
+}
+
+void ResolveScreen(SDL_Surface* surface)
+{
+	Uint32 black = SDL_MapRGBA(surface->format, 0, 0, 0, 255); 
+	Uint32 white = SDL_MapRGBA(surface->format, 255, 255, 255, 255);
+
+	int bpp = surface->format->BytesPerPixel;
+	
+	for(int y = 0; y < DISPLAY_HEIGHT; y++)
+	{
+		for(int x = 0; x < DISPLAY_WIDTH; x++)
+		{
+			Uint8 *p = (Uint8 *)surface->pixels + y * surface->pitch + x * bpp;
+			
+			*(Uint32 *)p = GetPixel(x, y) ? white : black;
+		}
+	}
+}
+
+void PutPixelImmediate(uint8_t x, uint8_t y, uint8_t colour)
+{
+	if (x >= DISPLAY_WIDTH || y >= DISPLAY_HEIGHT)
+	{
+		return;
+	}
+
 	SDL_Surface* surface = ScreenSurface;
 
 	Uint32 col = colour ? SDL_MapRGBA(surface->format, 255, 255, 255, 255) : SDL_MapRGBA(surface->format, 0, 0, 0, 255);
@@ -232,6 +280,21 @@ uint8_t GetInput()
 	return inputMask;
 }
 
+void DebugDisplayNow()
+{
+	ResolveScreen(ScreenSurface);
+	SDL_UpdateTexture(ScreenTexture, NULL, ScreenSurface->pixels, ScreenSurface->pitch);
+	SDL_Rect src, dest;
+	src.x = src.y = dest.x = dest.y = 0;
+	src.w = DISPLAY_WIDTH;
+	src.h = DISPLAY_HEIGHT;
+	dest.w = DISPLAY_WIDTH;
+	dest.h = DISPLAY_HEIGHT;
+	SDL_RenderCopy(AppRenderer, ScreenTexture, &src, &dest);
+	SDL_RenderPresent(AppRenderer);
+
+	SDL_Delay(1000 / TARGET_FRAMERATE);
+}
 
 int main(int argc, char* argv[])
 {
@@ -298,6 +361,7 @@ int main(int argc, char* argv[])
 		{
 			memset(ScreenSurface->pixels, 0, ScreenSurface->format->BytesPerPixel * ScreenSurface->w * ScreenSurface->h);
 			TickGame();
+			ResolveScreen(ScreenSurface);
 		}
 
 		if (IsRecording)

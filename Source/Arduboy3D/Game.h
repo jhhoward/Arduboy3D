@@ -17,6 +17,7 @@ void SetLED(uint8_t r, uint8_t g, uint8_t b);
 void FillScreen(uint8_t col);
 void DrawBackground(void);
 void DrawVLine(uint8_t x, int8_t y1, int8_t y2, uint8_t pattern);
+uint8_t* GetScreenBuffer(); 
 
 //
 

@@ -12,6 +12,8 @@
 #define FIXED_TO_INT(x) ((x) >> 8)
 #define FLOAT_TO_FIXED(x) ((int16_t)((x) * FIXED_ONE))
 
+#define ABS(x) (((x) < 0) ? -(x) : (x))
+
 #define FIXED_ANGLE_MAX 256
 #define FIXED_ANGLE_WRAP(x) ((x) & 255)
 #define FIXED_ANGLE_90 (FIXED_ANGLE_MAX / 4)

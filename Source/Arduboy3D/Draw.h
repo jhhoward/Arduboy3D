@@ -9,10 +9,11 @@ struct Camera
 	int16_t clipCos, clipSin;
 	uint8_t cellX, cellY;
 	int8_t tilt;
+	int8_t bob;
 };
 
 extern uint8_t wBuffer[];
 extern Camera camera;
 
 void Render(void);
-inline int8_t GetHorizon(int16_t x);
+int8_t GetHorizon(int16_t x);
