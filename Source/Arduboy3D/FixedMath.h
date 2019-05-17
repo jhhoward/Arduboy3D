@@ -32,3 +32,5 @@ inline int16_t FixedCos(uint8_t angle)
 }
 
 uint16_t Random();
+void SeedRandom(uint16_t seed);
+

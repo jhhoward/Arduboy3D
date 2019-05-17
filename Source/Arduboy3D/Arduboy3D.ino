@@ -1,6 +1,7 @@
 #include <Arduboy2.h>
 #include "Game.h"
 #include "Draw.h"
+#include "FixedMath.h"
 
 Arduboy2Base arduboy;
 Sprites sprites;
@@ -176,6 +177,7 @@ void setup()
 
   //Serial.begin(9600);
 
+  SeedRandom((uint16_t) arduboy.generateRandomSeed());
   InitGame();
   
   lastTimingSample = millis();

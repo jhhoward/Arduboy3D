@@ -12,18 +12,17 @@ uint16_t RandomOld()
 	return randVal - 1;
 }
 
+static uint16_t xs = 1;
+
 uint16_t Random()
 {
-	static uint16_t xs = 1;
 	xs ^= xs << 7;
 	xs ^= xs >> 9;
 	xs ^= xs << 8;
 	return xs;
 }
 
-uint16_t RandomAlt()
+void SeedRandom(uint16_t seed)
 {
-	static uint16_t xs = 1;
-	xs = (xs * 1103515245 + 12345) >> 16;
-	return xs;
+	xs = seed;
 }

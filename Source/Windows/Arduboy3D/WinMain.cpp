@@ -7,6 +7,7 @@
 #include "Game.h"
 #include "Map.h"
 #include "Draw.h"
+#include "FixedMath.h"
 #include "lodepng.h"
 
 #define ZOOM_SCALE 1
@@ -316,6 +317,7 @@ int main(int argc, char* argv[])
 
 	SDL_SetWindowPosition(AppWindow, 1900 - DISPLAY_WIDTH * 2, 1020 - DISPLAY_HEIGHT);
 
+	SeedRandom((uint16_t)time(nullptr));
 	InitGame();
 	
 	bool running = true;
