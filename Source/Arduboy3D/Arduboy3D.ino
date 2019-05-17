@@ -1,5 +1,6 @@
 #include <Arduboy2.h>
 #include "Game.h"
+#include "Draw.h"
 
 Arduboy2Base arduboy;
 Sprites sprites;
@@ -163,6 +164,8 @@ void DrawBitmap(const uint8_t* bmp, uint8_t x, uint8_t y, uint8_t w, uint8_t h)
   arduboy.drawBitmap(x, y, bmp, w, h, WHITE);
 }*/
 
+unsigned long lastTimingSample;
+
 void setup()
 {
   arduboy.boot();
@@ -174,17 +177,31 @@ void setup()
   //Serial.begin(9600);
 
   InitGame();
+  
+  lastTimingSample = millis();
 }
 
 void loop()
 {
+  static int16_t tickAccum = 0;
+  unsigned long timingSample = millis();
+  tickAccum += (timingSample - lastTimingSample);
+  lastTimingSample = timingSample;
+	
 #if DEV_MODE
   if(arduboy.nextFrameDEV())
 #else
   if(arduboy.nextFrame())
 #endif
   {
-    TickGame();
+	constexpr int16_t frameDuration = 1000 / TARGET_FRAMERATE;
+	while(tickAccum > frameDuration)
+	{
+		TickGame();
+		tickAccum -= frameDuration;
+	}
+	
+	Renderer::Render();
     
     //Serial.write(arduboy.getBuffer(), 128 * 64 / 8);
 

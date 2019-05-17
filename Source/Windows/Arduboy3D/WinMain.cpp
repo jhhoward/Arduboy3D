@@ -5,6 +5,8 @@
 #include <vector>
 #include "Defines.h"
 #include "Game.h"
+#include "Map.h"
+#include "Draw.h"
 #include "lodepng.h"
 
 #define ZOOM_SCALE 1
@@ -293,7 +295,8 @@ void DebugDisplayNow()
 	SDL_RenderCopy(AppRenderer, ScreenTexture, &src, &dest);
 	SDL_RenderPresent(AppRenderer);
 
-	SDL_Delay(1000 / TARGET_FRAMERATE);
+//	SDL_Delay(1000 / TARGET_FRAMERATE);
+	//SDL_Delay(1);
 }
 
 int main(int argc, char* argv[])
@@ -336,6 +339,7 @@ int main(int argc, char* argv[])
 					break;
 				case SDLK_TAB:
 					playRate = 10;
+					GenerateMap();
 					break;
 				case SDLK_F12:
 					{
@@ -360,7 +364,11 @@ int main(int argc, char* argv[])
 		for (int n = 0; n < playRate; n++)
 		{
 			memset(ScreenSurface->pixels, 0, ScreenSurface->format->BytesPerPixel * ScreenSurface->w * ScreenSurface->h);
+			
 			TickGame();
+			Renderer::Render();
+			DrawMap();
+			
 			ResolveScreen(ScreenSurface);
 		}
 

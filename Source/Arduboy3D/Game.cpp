@@ -3,6 +3,8 @@
 #include "FixedMath.h"
 #include "Draw.h"
 #include "Map.h"
+#include "Projectile.h"
+#include "Particle.h"
 
 #define USE_ROTATE_BOB 0
 #define STRAFE_TILT 14
@@ -13,6 +15,8 @@ int16_t cameraVelocityY;
 
 void InitGame()
 {
+	GenerateMap();
+
 	camera.x = CELL_SIZE * 1 + CELL_SIZE / 2;
 	camera.y = CELL_SIZE * 1 + CELL_SIZE / 2;
 }
@@ -34,6 +38,7 @@ void MoveCamera(Camera* entity, int16_t deltaX, int16_t deltaY)
 	entity->x += deltaX;
 	entity->y += deltaY;
 
+	
 	if (IsObjectColliding(entity))
 	{
 		entity->y -= deltaY;
@@ -48,64 +53,13 @@ void MoveCamera(Camera* entity, int16_t deltaX, int16_t deltaY)
 			}
 		}
 	}
-	/*int16_t newX = entity->x + deltaX;
-	int16_t newY = entity->y + deltaY;
+	
 
-	if (deltaX < 0)
-	{
-		if (IsBlockedAtWorldPosition(newX - COLLISION_SIZE, entity->y)
-			|| IsBlockedAtWorldPosition(newX - COLLISION_SIZE, entity->y - COLLISION_SIZE)
-			|| IsBlockedAtWorldPosition(newX - COLLISION_SIZE, entity->y + COLLISION_SIZE))
-		{
-			entity->x = (entity->x & 0xff00) + COLLISION_SIZE;
-		}
-		else
-		{
-			entity->x = newX;
-		}
-	}
-	else if(deltaX > 0)
-	{
-		if (IsBlockedAtWorldPosition(newX + COLLISION_SIZE, entity->y)
-			|| IsBlockedAtWorldPosition(newX + COLLISION_SIZE, entity->y - COLLISION_SIZE)
-			|| IsBlockedAtWorldPosition(newX + COLLISION_SIZE, entity->y + COLLISION_SIZE))
-		{
-			entity->x = (entity->x & 0xff00) + CELL_SIZE - COLLISION_SIZE;
-		}
-		else
-		{
-			entity->x = newX;
-		}
-	}
-
-	if (deltaY < 0)
-	{
-		if (IsBlockedAtWorldPosition(entity->x, newY - COLLISION_SIZE)
-			|| IsBlockedAtWorldPosition(entity->x + COLLISION_SIZE, newY - COLLISION_SIZE)
-			|| IsBlockedAtWorldPosition(entity->x - COLLISION_SIZE, newY - COLLISION_SIZE))
-		{
-			entity->y = (entity->y & 0xff00) + COLLISION_SIZE;
-		}
-		else
-		{
-			entity->y = newY;
-		}
-	}
-	else if (deltaY > 0)
-	{
-		if (IsBlockedAtWorldPosition(entity->x, newY + COLLISION_SIZE)
-			|| IsBlockedAtWorldPosition(entity->x + COLLISION_SIZE, newY + COLLISION_SIZE)
-			|| IsBlockedAtWorldPosition(entity->x - COLLISION_SIZE, newY + COLLISION_SIZE))
-		{
-			entity->y = (entity->y & 0xff00) + CELL_SIZE - COLLISION_SIZE;
-		}
-		else
-		{
-			entity->y = newY;
-		}
-	}*/
 
 }
+
+uint8_t shakeTime = 0;
+uint8_t reloadTime = 0;
 
 void TickGame()
 {
@@ -114,8 +68,6 @@ void TickGame()
 	int8_t targetTilt = 0;
 	int8_t moveDelta = 0;
 	int8_t strafeDelta = 0;
-	static uint8_t shakeTime = 0;
-	static uint8_t reloadTime = 0;
 
 	if(input & INPUT_A)
 	{
@@ -140,6 +92,8 @@ void TickGame()
 		}
 	}
 
+	// Testing shooting / recoil mechanic
+	
 	if (reloadTime > 0)
 	{
 		reloadTime--;
@@ -148,9 +102,15 @@ void TickGame()
 	{
 		reloadTime = 13;
 		shakeTime = 8;
-		if(!moveDelta)
-			moveDelta -= 5;
+		//if(!moveDelta)
+		//	moveDelta -= 5;
+		
+		int16_t projectileX = camera.x + FixedCos(camera.angle + FIXED_ANGLE_90 / 2) / 4;
+		int16_t projectileY = camera.y + FixedSin(camera.angle + FIXED_ANGLE_90 / 2) / 4;
+		
+		ProjectileManager::FireProjectile(projectileX, projectileY, camera.angle);
 	}
+	
 
 	if (cameraAngularVelocity < turnDelta)
 	{
@@ -239,16 +199,17 @@ void TickGame()
 	int16_t sin90Angle = FixedSin(camera.angle + FIXED_ANGLE_90);
 	//camera.x += (moveDelta * cosAngle) >> 4;
 	//camera.y += (moveDelta * sinAngle) >> 4;
-	cameraVelocityX += (moveDelta * cosAngle) / 32;
-	cameraVelocityY += (moveDelta * sinAngle) / 32;
+	cameraVelocityX += (moveDelta * cosAngle) / 24;
+	cameraVelocityY += (moveDelta * sinAngle) / 24;
 
-	cameraVelocityX += (strafeDelta * cos90Angle) / 32;
-	cameraVelocityY += (strafeDelta * sin90Angle) / 32;
+	cameraVelocityX += (strafeDelta * cos90Angle) / 24;
+	cameraVelocityY += (strafeDelta * sin90Angle) / 24;
 	
+	MoveCamera(&camera, cameraVelocityX / 4, cameraVelocityY / 4);
+
 	cameraVelocityX = (cameraVelocityX * 7) / 8;
 	cameraVelocityY = (cameraVelocityY * 7) / 8;
-
-	MoveCamera(&camera, cameraVelocityX / 4, cameraVelocityY / 4);
 	
-	Render();
+	ProjectileManager::Update();
+	ParticleSystemManager::Update();
 }

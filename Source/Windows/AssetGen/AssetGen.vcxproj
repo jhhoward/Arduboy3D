@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -19,21 +19,21 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{81269073-28D8-47D3-97FB-12F08DE2C936}</ProjectGuid>
-    <RootNamespace>MicroCity</RootNamespace>
+    <ProjectGuid>{E41F42ED-3CD2-43FB-B09C-296781CA1FDD}</ProjectGuid>
+    <RootNamespace>AssetGen</RootNamespace>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <CharacterSet>MultiByte</CharacterSet>
     <PlatformToolset>v140</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
@@ -46,7 +46,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
@@ -74,13 +74,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(ProjectDir)\..\..\Arduboy3D;$(ProjectDir)\..\SDL\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
-    <Link>
-      <AdditionalLibraryDirectories>$(ProjectDir)\..\SDL\lib\x86;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>SDL2main.lib;SDL2.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <SubSystem>Console</SubSystem>
-    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -116,28 +110,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\Arduboy3D\Draw.cpp" />
-    <ClCompile Include="..\..\Arduboy3D\FixedMath.cpp" />
-    <ClCompile Include="..\..\Arduboy3D\Font.cpp" />
-    <ClCompile Include="..\..\Arduboy3D\Game.cpp" />
-    <ClCompile Include="..\..\Arduboy3D\Map.cpp" />
-    <ClCompile Include="..\..\Arduboy3D\Particle.cpp" />
-    <ClCompile Include="..\..\Arduboy3D\Projectile.cpp" />
-    <ClCompile Include="lodepng.cpp" />
-    <ClCompile Include="WinMain.cpp" />
+    <ClCompile Include="..\Arduboy3D\lodepng.cpp" />
+    <ClCompile Include="AssetGen.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\Arduboy3D\Defines.h" />
-    <ClInclude Include="..\..\Arduboy3D\Draw.h" />
-    <ClInclude Include="..\..\Arduboy3D\FixedMath.h" />
-    <ClInclude Include="..\..\Arduboy3D\Font.h" />
-    <ClInclude Include="..\..\Arduboy3D\Game.h" />
-    <ClInclude Include="..\..\Arduboy3D\LUT.h" />
-    <ClInclude Include="..\..\Arduboy3D\Map.h" />
-    <ClInclude Include="..\..\Arduboy3D\Particle.h" />
-    <ClInclude Include="..\..\Arduboy3D\Projectile.h" />
-    <ClInclude Include="..\..\Arduboy3D\Textures.h" />
-    <ClInclude Include="lodepng.h" />
+    <ClInclude Include="..\Arduboy3D\lodepng.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

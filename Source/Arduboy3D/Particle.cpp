@@ -1,6 +1,8 @@
 #include "Particle.h"
 #include "FixedMath.h"
 
+ParticleSystem ParticleSystemManager::systems[MAX_SYSTEMS];
+
 void ParticleSystem::Init()
 {
 	for (int n = 0; n < PARTICLES_PER_SYSTEM; n++)
@@ -11,18 +13,20 @@ void ParticleSystem::Init()
 
 void ParticleSystem::Step()
 {
+	isActive = false;
+	
 	for (int n = 0; n < PARTICLES_PER_SYSTEM; n++)
 	{
 		Particle& p = particles[n];
 
-		if (p.IsActive())
+		if (p.life > 0)
 		{
 			p.velY += gravity;
 			p.life--;
 
 			if (p.x + p.velX < -127 || p.x + p.velX > 127 || p.y + p.velY < -127 || p.life == 0)
 			{
-				p.x = -128;
+				p.life = 0;
 				continue;
 			}
 
@@ -35,10 +39,7 @@ void ParticleSystem::Step()
 			p.x += p.velX;
 			p.y += p.velY;
 
-			//if(p.y > 64)
-			//{
-			//	p.y = 64;
-			//}
+			isActive = true;
 		}
 	}
 }
@@ -46,20 +47,20 @@ void ParticleSystem::Step()
 void ParticleSystem::Draw(int x, int halfScale)
 {
 	int scale = 2 * halfScale;
-	int8_t horizon = GetHorizon(x);
+	int8_t horizon = Renderer::GetHorizon(x);
 	
 	for (int n = 0; n < PARTICLES_PER_SYSTEM; n++)
 	{
 		Particle& p = particles[n];
 
-		if (p.IsActive())
+		if (p.life > 0)
 		{
 			//int outX = x + ((p.x * scale) >> 8);
 			//int outY = HORIZON + ((p.y * scale) >> 8);
 			int outX = x + ((p.x * scale) >> 8);
 			int outY = horizon + ((p.y * scale) >> 8);
 
-			if (outX >= 0 && outY >= 0 && outX < DISPLAY_WIDTH - 1 && outY < DISPLAY_HEIGHT - 1 && halfScale >= wBuffer[outX])
+			if (outX >= 0 && outY >= 0 && outX < DISPLAY_WIDTH - 1 && outY < DISPLAY_HEIGHT - 1 && halfScale >= Renderer::wBuffer[outX])
 			{
 				PutPixel(outX, outY, COLOUR_BLACK);
 				PutPixel(outX + 1, outY, COLOUR_BLACK);
@@ -96,4 +97,60 @@ void ParticleSystem::Explode(uint8_t count)
 			n = 0;
 		}
 	}
+}
+
+void ParticleSystemManager::Draw()
+{
+	for(uint8_t n = 0; n < MAX_SYSTEMS; n++)
+	{
+		ParticleSystem& system = systems[n];
+		
+		if(system.isActive)
+		{
+			int16_t screenX, screenW;
+
+			if(Renderer::TransformAndCull(system.worldX, system.worldY, screenX, screenW))
+			{
+				QueuedDrawable* drawable = Renderer::CreateQueuedDrawable((uint8_t)screenW);
+				if(drawable)
+				{
+					drawable->type = DrawableType::ParticleSystem;
+					drawable->x = (int8_t)screenX;
+					drawable->inverseCameraDistance = (uint8_t)screenW;
+					drawable->particleSystem = &system;
+				}
+			}
+		}
+	}
+}
+
+void ParticleSystemManager::Update()
+{
+	for(uint8_t n = 0; n < MAX_SYSTEMS; n++)
+	{
+		ParticleSystem& system = systems[n];
+		
+		if(system.isActive)
+		{
+			system.Step();
+		}
+	}	
+}
+
+void ParticleSystemManager::CreateExplosion(int16_t worldX, int16_t worldY)
+{
+	for(uint8_t n = 0; n < MAX_SYSTEMS; n++)
+	{
+		ParticleSystem& system = systems[n];
+		
+		if(!system.isActive)
+		{
+			system.worldX = worldX;
+			system.worldY = worldY;
+			system.isActive = true;
+			system.Explode(PARTICLES_PER_SYSTEM);
+			
+			return;
+		}
+	}	
 }

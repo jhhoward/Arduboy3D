@@ -16,11 +16,24 @@ struct Particle
 
 struct ParticleSystem
 {
-	const int8_t gravity = 3;
+	static constexpr int8_t gravity = 3;
+	int16_t worldX, worldY;
+	bool isActive : 1;
 	Particle particles[PARTICLES_PER_SYSTEM];
 
 	void Init();
 	void Step();
 	void Draw(int x, int scale);
 	void Explode(uint8_t count);
+};
+
+class ParticleSystemManager
+{
+public:
+	static constexpr int MAX_SYSTEMS = 3;
+	static ParticleSystem systems[MAX_SYSTEMS];
+	
+	static void Draw();
+	static void Update();
+	static void CreateExplosion(int16_t x, int16_t y);
 };
