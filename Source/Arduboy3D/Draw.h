@@ -15,10 +15,8 @@ struct Camera
 	uint8_t cellX, cellY;
 	int8_t tilt;
 	int8_t bob;
-	int8_t sway;
+	uint8_t shakeTime;
 };
-
-extern Camera camera;
 
 enum class DrawableType : uint8_t
 {
@@ -44,6 +42,7 @@ struct QueuedDrawable
 class Renderer
 {
 public:
+	static Camera camera;
 	static uint8_t wBuffer[DISPLAY_WIDTH];
 	static uint8_t globalAnimationFrame;
 
@@ -60,6 +59,8 @@ private:
 	static QueuedDrawable queuedDrawables[MAX_QUEUED_DRAWABLES];
 	static uint8_t numQueuedDrawables;
 	static uint8_t numBufferSlicesFilled;
+
+	static void DrawBackground();
 
 #if WITH_IMAGE_TEXTURES
 	static void DrawWallSegment(const uint16_t* texture, int16_t x1, int16_t w1, int16_t x2, int16_t w2, uint8_t u1clip, uint8_t u2clip, bool edgeLeft, bool edgeRight, bool shadeEdge);

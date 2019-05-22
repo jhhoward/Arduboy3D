@@ -33,10 +33,10 @@ void ProjectileManager::Update()
 
 			int16_t deltaX = FixedCos(p.angle) / 4;
 			int16_t deltaY = FixedSin(p.angle) / 4;
-			p.x += deltaX;
-			p.y += deltaY;
 
-			if (IsBlockedAtWorldPosition(p.x, p.y))
+			MoveResult moveResult = p.Move(deltaX, deltaY);
+
+			if(moveResult.didCollide)
 			{
 				ParticleSystemManager::CreateExplosion(p.x - deltaX, p.y - deltaY);
 				p.life = 0;

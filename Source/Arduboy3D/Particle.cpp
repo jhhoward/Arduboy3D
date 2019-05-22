@@ -1,5 +1,6 @@
 #include "Particle.h"
 #include "FixedMath.h"
+#include "Platform.h"
 
 ParticleSystem ParticleSystemManager::systems[MAX_SYSTEMS];
 
@@ -62,10 +63,10 @@ void ParticleSystem::Draw(int x, int halfScale)
 
 			if (outX >= 0 && outY >= 0 && outX < DISPLAY_WIDTH - 1 && outY < DISPLAY_HEIGHT - 1 && halfScale >= Renderer::wBuffer[outX])
 			{
-				PutPixel(outX, outY, COLOUR_BLACK);
-				PutPixel(outX + 1, outY, COLOUR_BLACK);
-				PutPixel(outX + 1, outY + 1, COLOUR_BLACK);
-				PutPixel(outX, outY + 1, COLOUR_BLACK);
+				Platform::PutPixel(outX, outY, COLOUR_BLACK);
+				Platform::PutPixel(outX + 1, outY, COLOUR_BLACK);
+				Platform::PutPixel(outX + 1, outY + 1, COLOUR_BLACK);
+				Platform::PutPixel(outX, outY + 1, COLOUR_BLACK);
 			}
 		}
 	}

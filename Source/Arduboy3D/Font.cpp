@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "Defines.h"
 #include "Font.h"
-#include "Game.h"
+#include "Platform.h"
 
 // Font Definition
 const uint8_t font4x6[96][2] PROGMEM = {
@@ -141,78 +141,78 @@ void DrawChar(char c)
 
 	if (data2 & 1)	// Descender e.g. j, g
 	{
-		PutPixel(PrintX, y, 1);
-		PutPixel(PrintX + 1, y, 1);
-		PutPixel(PrintX + 2, y, 1);
-		PutPixel(PrintX + 3, y, 1);
+		Platform::PutPixel(PrintX, y, 1);
+		Platform::PutPixel(PrintX + 1, y, 1);
+		Platform::PutPixel(PrintX + 2, y, 1);
+		Platform::PutPixel(PrintX + 3, y, 1);
 		y++;
 
-		PutPixel(PrintX, y, (data1 & 0x80) ? 0 : 1);
-		PutPixel(PrintX + 1, y, (data1 & 0x40) ? 0 : 1);
-		PutPixel(PrintX + 2, y, (data1 & 0x20) ? 0 : 1);
-		PutPixel(PrintX + 3, y, 1);
+		Platform::PutPixel(PrintX, y, (data1 & 0x80) ? 0 : 1);
+		Platform::PutPixel(PrintX + 1, y, (data1 & 0x40) ? 0 : 1);
+		Platform::PutPixel(PrintX + 2, y, (data1 & 0x20) ? 0 : 1);
+		Platform::PutPixel(PrintX + 3, y, 1);
 		y++;
 
-		PutPixel(PrintX, y, (data1 & 0x10) ? 0 : 1);
-		PutPixel(PrintX + 1, y, (data1 & 0x8) ? 0 : 1);
-		PutPixel(PrintX + 2, y, (data1 & 0x4) ? 0 : 1);
-		PutPixel(PrintX + 3, y, 1);
+		Platform::PutPixel(PrintX, y, (data1 & 0x10) ? 0 : 1);
+		Platform::PutPixel(PrintX + 1, y, (data1 & 0x8) ? 0 : 1);
+		Platform::PutPixel(PrintX + 2, y, (data1 & 0x4) ? 0 : 1);
+		Platform::PutPixel(PrintX + 3, y, 1);
 		y++;
 
-		PutPixel(PrintX, y, (data1 & 0x2) ? 0 : 1);
-		PutPixel(PrintX + 1, y, (data1 & 0x1) ? 0 : 1);
-		PutPixel(PrintX + 2, y, (data2 & 0x2) ? 0 : 1);
-		PutPixel(PrintX + 3, y, 1);
+		Platform::PutPixel(PrintX, y, (data1 & 0x2) ? 0 : 1);
+		Platform::PutPixel(PrintX + 1, y, (data1 & 0x1) ? 0 : 1);
+		Platform::PutPixel(PrintX + 2, y, (data2 & 0x2) ? 0 : 1);
+		Platform::PutPixel(PrintX + 3, y, 1);
 		y++;
 
-		PutPixel(PrintX, y, (data2 & 0x80) ? 0 : 1);
-		PutPixel(PrintX + 1, y, (data2 & 0x40) ? 0 : 1);
-		PutPixel(PrintX + 2, y, (data2 & 0x20) ? 0 : 1);
-		PutPixel(PrintX + 3, y, 1);
+		Platform::PutPixel(PrintX, y, (data2 & 0x80) ? 0 : 1);
+		Platform::PutPixel(PrintX + 1, y, (data2 & 0x40) ? 0 : 1);
+		Platform::PutPixel(PrintX + 2, y, (data2 & 0x20) ? 0 : 1);
+		Platform::PutPixel(PrintX + 3, y, 1);
 		y++;
 
-		PutPixel(PrintX, y, (data2 & 0x10) ? 0 : 1);
-		PutPixel(PrintX + 1, y, (data2 & 0x8) ? 0 : 1);
-		PutPixel(PrintX + 2, y, (data2 & 0x4) ? 0 : 1);
-		PutPixel(PrintX + 3, y, 1);
+		Platform::PutPixel(PrintX, y, (data2 & 0x10) ? 0 : 1);
+		Platform::PutPixel(PrintX + 1, y, (data2 & 0x8) ? 0 : 1);
+		Platform::PutPixel(PrintX + 2, y, (data2 & 0x4) ? 0 : 1);
+		Platform::PutPixel(PrintX + 3, y, 1);
 		y++;
 	}
 	else
 	{
-		PutPixel(PrintX, y, (data1 & 0x80) ? 0 : 1);
-		PutPixel(PrintX + 1, y, (data1 & 0x40) ? 0 : 1);
-		PutPixel(PrintX + 2, y, (data1 & 0x20) ? 0 : 1);
-		PutPixel(PrintX + 3, y, 1);
+		Platform::PutPixel(PrintX, y, (data1 & 0x80) ? 0 : 1);
+		Platform::PutPixel(PrintX + 1, y, (data1 & 0x40) ? 0 : 1);
+		Platform::PutPixel(PrintX + 2, y, (data1 & 0x20) ? 0 : 1);
+		Platform::PutPixel(PrintX + 3, y, 1);
 		y++;
 
-		PutPixel(PrintX, y, (data1 & 0x10) ? 0 : 1);
-		PutPixel(PrintX + 1, y, (data1 & 0x8) ? 0 : 1);
-		PutPixel(PrintX + 2, y, (data1 & 0x4) ? 0 : 1);
-		PutPixel(PrintX + 3, y, 1);
+		Platform::PutPixel(PrintX, y, (data1 & 0x10) ? 0 : 1);
+		Platform::PutPixel(PrintX + 1, y, (data1 & 0x8) ? 0 : 1);
+		Platform::PutPixel(PrintX + 2, y, (data1 & 0x4) ? 0 : 1);
+		Platform::PutPixel(PrintX + 3, y, 1);
 		y++;
 
-		PutPixel(PrintX, y, (data1 & 0x2) ? 0 : 1);
-		PutPixel(PrintX + 1, y, (data1 & 0x1) ? 0 : 1);
-		PutPixel(PrintX + 2, y, (data2 & 0x2) ? 0 : 1);
-		PutPixel(PrintX + 3, y, 1);
+		Platform::PutPixel(PrintX, y, (data1 & 0x2) ? 0 : 1);
+		Platform::PutPixel(PrintX + 1, y, (data1 & 0x1) ? 0 : 1);
+		Platform::PutPixel(PrintX + 2, y, (data2 & 0x2) ? 0 : 1);
+		Platform::PutPixel(PrintX + 3, y, 1);
 		y++;
 
-		PutPixel(PrintX, y, (data2 & 0x80) ? 0 : 1);
-		PutPixel(PrintX + 1, y, (data2 & 0x40) ? 0 : 1);
-		PutPixel(PrintX + 2, y, (data2 & 0x20) ? 0 : 1);
-		PutPixel(PrintX + 3, y, 1);
+		Platform::PutPixel(PrintX, y, (data2 & 0x80) ? 0 : 1);
+		Platform::PutPixel(PrintX + 1, y, (data2 & 0x40) ? 0 : 1);
+		Platform::PutPixel(PrintX + 2, y, (data2 & 0x20) ? 0 : 1);
+		Platform::PutPixel(PrintX + 3, y, 1);
 		y++;
 
-		PutPixel(PrintX, y, (data2 & 0x10) ? 0 : 1);
-		PutPixel(PrintX + 1, y, (data2 & 0x8) ? 0 : 1);
-		PutPixel(PrintX + 2, y, (data2 & 0x4) ? 0 : 1);
-		PutPixel(PrintX + 3, y, 1);
+		Platform::PutPixel(PrintX, y, (data2 & 0x10) ? 0 : 1);
+		Platform::PutPixel(PrintX + 1, y, (data2 & 0x8) ? 0 : 1);
+		Platform::PutPixel(PrintX + 2, y, (data2 & 0x4) ? 0 : 1);
+		Platform::PutPixel(PrintX + 3, y, 1);
 		y++;
 
-		PutPixel(PrintX, y, 1);
-		PutPixel(PrintX + 1, y, 1);
-		PutPixel(PrintX + 2, y, 1);
-		PutPixel(PrintX + 3, y, 1);
+		Platform::PutPixel(PrintX, y, 1);
+		Platform::PutPixel(PrintX + 1, y, 1);
+		Platform::PutPixel(PrintX + 2, y, 1);
+		Platform::PutPixel(PrintX + 3, y, 1);
 	}
 }
 
@@ -223,10 +223,10 @@ void DrawCharOld(char c)
 	for (int row = 0; row < FONT_HEIGHT; row++)
 	{
 		uint8_t data = getFontLine((unsigned char)c, row);
-		PutPixel(PrintX, y, (data & 8) ? 0 : 1);
-		PutPixel(PrintX + 1, y, (data & 4) ? 0 : 1);
-		PutPixel(PrintX + 2, y, (data & 2) ? 0 : 1);
-		PutPixel(PrintX + 3, y, 1);
+		Platform::PutPixel(PrintX, y, (data & 8) ? 0 : 1);
+		Platform::PutPixel(PrintX + 1, y, (data & 4) ? 0 : 1);
+		Platform::PutPixel(PrintX + 2, y, (data & 2) ? 0 : 1);
+		Platform::PutPixel(PrintX + 3, y, 1);
 		y++;
 	}
 }

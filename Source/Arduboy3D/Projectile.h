@@ -1,10 +1,11 @@
 #pragma once
 
 #include <stdint.h>
+#include "Entity.h"
 
-struct Projectile
+class Projectile : public Entity
 {
-	int16_t x, y;
+public:
 	uint8_t angle;
 	uint8_t life;
 };

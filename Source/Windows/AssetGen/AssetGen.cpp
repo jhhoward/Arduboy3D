@@ -304,7 +304,26 @@ void EncodeSprite2D(ofstream& fs, const char* inputPath, const char* variableNam
 	}
 	
 	fs << "// Generated from " << inputPath << endl;
+	
 	fs << "const uint8_t " << variableName << "[] PROGMEM =" << endl;
+	fs << "{" << endl;
+	fs << "\t" << dec << (x2 - x1) << ", " << dec << (y2 - y1) << "," << endl << "\t";
+	
+	for(unsigned x = 0; x < colourMasks.size(); x++)
+	{
+		fs << "0x" << hex << (int)(colourMasks[x]) << ",";
+		fs << "0x" << hex << (int)(transparencyMasks[x]);
+	
+		if(x != colourMasks.size() - 1)
+		{
+			fs << ",";
+		}
+	}
+	
+	fs << endl;	
+	fs << "};" << endl;	
+	
+/*	fs << "const uint8_t " << variableName << "[] PROGMEM =" << endl;
 	fs << "{" << endl;
 	fs << "\t" << dec << (x2 - x1) << ", " << dec << (y2 - y1) << "," << endl << "\t";
 	
@@ -332,9 +351,10 @@ void EncodeSprite2D(ofstream& fs, const char* inputPath, const char* variableNam
 			fs << ",";
 		}
 	}
-	
+
 	fs << endl;	
 	fs << "};" << endl;	
+	*/
 }
 
 int main(int argc, char* argv[])
@@ -347,6 +367,7 @@ int main(int argc, char* argv[])
 	EncodeSprite3D(spritesFile, "Images/torch2.png", "torchSpriteData1");
 	EncodeSprite3D(spritesFile, "Images/torch3.png", "torchSpriteData2");
 	EncodeSprite3D(spritesFile, "Images/fireball.png", "projectileSpriteData");
+	EncodeSprite3D(spritesFile, "Images/exit.png", "exitSpriteData");
 
 	EncodeSprite2D(spritesFile, "Images/hand1.png", "handSpriteData1");
 	EncodeSprite2D(spritesFile, "Images/hand2.png", "handSpriteData2");

@@ -7,7 +7,9 @@
 #include "Game.h"
 #include "Map.h"
 #include "Draw.h"
+#include "Platform.h"
 #include "FixedMath.h"
+#include "MapGenerator.h"
 #include "lodepng.h"
 
 #define ZOOM_SCALE 1
@@ -39,12 +41,12 @@ std::vector<KeyMap> KeyMappings =
 	{ SDL_SCANCODE_X, INPUT_B },
 };
 
-void SetLED(uint8_t r, uint8_t g, uint8_t b)
+void Platform::SetLED(uint8_t r, uint8_t g, uint8_t b)
 {
 
 }
 
-void FillScreen(uint8_t colour)
+void Platform::FillScreen(uint8_t colour)
 {
 	for (int y = 0; y < DISPLAY_HEIGHT; y++)
 	{
@@ -55,8 +57,42 @@ void FillScreen(uint8_t colour)
 	}
 }
 
-void DrawSprite(int16_t x, int16_t y, const uint8_t *bitmap,
-	const uint8_t *mask, uint8_t frame, uint8_t mask_frame)
+void Platform::DrawSprite(int16_t x, int16_t y, const uint8_t *bitmap, uint8_t frame)
+{
+	uint8_t w = bitmap[0];
+	uint8_t h = bitmap[1];
+
+	bitmap += 2;
+
+	for (int j = 0; j < h; j++)
+	{
+		for (int i = 0; i < w; i++)
+		{
+			int blockY = j / 8;
+			int blockIndex = (w * blockY + i) * 2;
+			uint8_t pixels = bitmap[blockIndex];
+			uint8_t maskPixels = bitmap[blockIndex + 1];
+			uint8_t bitmask = 1 << (j % 8);
+
+			if (maskPixels & bitmask)
+			{
+				if (x + i >= 0 && y + j >= 0)
+				{
+					if (pixels & bitmask)
+					{
+						PutPixel(x + i, y + j, 1);
+					}
+					else
+					{
+						PutPixel(x + i, y + j, 0);
+					}
+				}
+			}
+		}
+	}
+}
+
+void Platform::DrawSprite(int16_t x, int16_t y, const uint8_t *bitmap, const uint8_t *mask, uint8_t frame, uint8_t mask_frame)
 {
 	uint8_t w = bitmap[0];
 	uint8_t h = bitmap[1];
@@ -89,10 +125,9 @@ void DrawSprite(int16_t x, int16_t y, const uint8_t *bitmap,
 			}
 		}
 	}
-
 }
 
-void DrawVLine(uint8_t x, int8_t y1, int8_t y2, uint8_t pattern)
+void Platform::DrawVLine(uint8_t x, int8_t y1, int8_t y2, uint8_t pattern)
 {
 	for (int y = y1; y <= y2; y++)
 	{
@@ -152,7 +187,7 @@ void DrawVLine(uint8_t x, int8_t y0_, int8_t y1_, uint8_t pattern)
 }
 */
 
-void PutPixel(uint8_t x, uint8_t y, uint8_t colour)
+void Platform::PutPixel(uint8_t x, uint8_t y, uint8_t colour)
 {
 	if (x >= DISPLAY_WIDTH || y >= DISPLAY_HEIGHT)
 	{
@@ -176,7 +211,7 @@ uint8_t GetPixel(uint8_t x, uint8_t y)
 	return (sBuffer[(row*DISPLAY_WIDTH) + x] & (1 << bit_position)) >> bit_position;
 }
 
-uint8_t* GetScreenBuffer()
+uint8_t* Platform::GetScreenBuffer()
 {
 	return sBuffer;
 }
@@ -216,7 +251,7 @@ void PutPixelImmediate(uint8_t x, uint8_t y, uint8_t colour)
 	*(Uint32 *)p = col;
 }
 
-void DrawBitmap(const uint8_t* data, uint16_t x, uint16_t y, uint8_t w, uint8_t h)
+void DrawBitmapInternal(const uint8_t* data, uint16_t x, uint16_t y, uint8_t w, uint8_t h)
 {
 	for (int j = 0; j < h; j++)
 	{
@@ -232,28 +267,28 @@ void DrawBitmap(const uint8_t* data, uint16_t x, uint16_t y, uint8_t w, uint8_t 
 			{
 				if (pixels & mask)
 				{
-					PutPixel(x + i, y + j, 1);
+					Platform::PutPixel(x + i, y + j, 1);
 				}
 				else
 				{
-					PutPixel(x + i, y + j, 0);
+					Platform::PutPixel(x + i, y + j, 0);
 				}
 			}
 		}
 	}
 }
 
-void DrawBitmap(int16_t x, int16_t y, const uint8_t *bitmap)
+void Platform::DrawBitmap(int16_t x, int16_t y, const uint8_t *bitmap)
 {
-	DrawBitmap(bitmap + 2, x, y, bitmap[0], bitmap[1]);
+	DrawBitmapInternal(bitmap + 2, x, y, bitmap[0], bitmap[1]);
 }
 
-void DrawSolidBitmap(int16_t x, int16_t y, const uint8_t *bitmap)
+void Platform::DrawSolidBitmap(int16_t x, int16_t y, const uint8_t *bitmap)
 {
-	DrawBitmap(bitmap + 2, x, y, bitmap[0], bitmap[1]);
+	DrawBitmapInternal(bitmap + 2, x, y, bitmap[0], bitmap[1]);
 }
 
-void DrawBackground()
+void Platform::DrawBackground()
 {
 	for (int y = 0; y < DISPLAY_HEIGHT; y++)
 	{
@@ -266,7 +301,7 @@ void DrawBackground()
 	}
 }
 
-uint8_t GetInput()
+uint8_t Platform::GetInput()
 {
 	uint8_t inputMask = 0;
 
@@ -318,7 +353,7 @@ int main(int argc, char* argv[])
 	SDL_SetWindowPosition(AppWindow, 1900 - DISPLAY_WIDTH * 2, 1020 - DISPLAY_HEIGHT);
 
 	SeedRandom((uint16_t)time(nullptr));
-	InitGame();
+	Game::Init();
 	
 	bool running = true;
 	int playRate = 1;
@@ -341,7 +376,7 @@ int main(int argc, char* argv[])
 					break;
 				case SDLK_TAB:
 					playRate = 10;
-					GenerateMap();
+					MapGenerator::Generate();
 					break;
 				case SDLK_F12:
 					{
@@ -367,9 +402,9 @@ int main(int argc, char* argv[])
 		{
 			memset(ScreenSurface->pixels, 0, ScreenSurface->format->BytesPerPixel * ScreenSurface->w * ScreenSurface->h);
 			
-			TickGame();
+			Game::Tick();
 			Renderer::Render();
-			DrawMap();
+			Map::DebugDraw();
 			
 			ResolveScreen(ScreenSurface);
 		}
