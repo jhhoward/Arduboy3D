@@ -2,20 +2,11 @@
 
 #include <stdint.h>
 
-struct MoveResult
-{
-	bool didCollide;
-	class Entity* collidedEntity;
-};
-
 class Entity
 {
 public:
-	MoveResult Move(int16_t deltaX, int16_t deltaY);
-	
-	bool CheckCollisions(MoveResult& collisionResult);
+	bool IsOverlappingEntity(const Entity& other) const;
 	bool IsWorldColliding();
-	
 
 	int16_t x, y;
 };

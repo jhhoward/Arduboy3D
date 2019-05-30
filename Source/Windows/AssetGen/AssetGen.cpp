@@ -368,6 +368,7 @@ int main(int argc, char* argv[])
 	EncodeSprite3D(spritesFile, "Images/torch3.png", "torchSpriteData2");
 	EncodeSprite3D(spritesFile, "Images/fireball.png", "projectileSpriteData");
 	EncodeSprite3D(spritesFile, "Images/exit.png", "exitSpriteData");
+	EncodeSprite3D(spritesFile, "Images/urn.png", "urnSpriteData");
 
 	EncodeSprite2D(spritesFile, "Images/hand1.png", "handSpriteData1");
 	EncodeSprite2D(spritesFile, "Images/hand2.png", "handSpriteData2");

@@ -3,6 +3,7 @@
 #include "Map.h"
 #include "FixedMath.h"
 #include "Particle.h"
+#include "Enemy.h"
 
 Projectile ProjectileManager::projectiles[ProjectileManager::MAX_PROJECTILES];
 
@@ -34,11 +35,37 @@ void ProjectileManager::Update()
 			int16_t deltaX = FixedCos(p.angle) / 4;
 			int16_t deltaY = FixedSin(p.angle) / 4;
 
-			MoveResult moveResult = p.Move(deltaX, deltaY);
+			p.x += deltaX;
+			p.y += deltaY;
 
-			if(moveResult.didCollide)
+			bool hitAnything = false;
+
+			Enemy* overlappingEnemy = EnemyManager::GetOverlappingEnemy(p);
+			if (overlappingEnemy)
+			{
+				overlappingEnemy->Damage();
+				ParticleSystemManager::CreateExplosion(p.x, p.y, true);
+
+				hitAnything = true;
+			}
+			else if (Map::IsBlockedAtWorldPosition(p.x, p.y))
+			{
+				uint8_t cellX = p.x / CELL_SIZE;
+				uint8_t cellY = p.y / CELL_SIZE;
+
+				if (Map::GetCellSafe(cellX, cellY) == CellType::Urn)
+				{
+					Map::SetCell(cellX, cellY, CellType::Empty);
+					ParticleSystemManager::CreateExplosion(cellX * CELL_SIZE + CELL_SIZE / 2, cellY * CELL_SIZE + CELL_SIZE / 2, true);
+				}
+
+				hitAnything = true;
+			}
+
+			if (hitAnything)
 			{
 				ParticleSystemManager::CreateExplosion(p.x - deltaX, p.y - deltaY);
+
 				p.life = 0;
 			}
 		}

@@ -7,6 +7,7 @@
 #include "Map.h"
 #include "Projectile.h"
 #include "Platform.h"
+#include "Enemy.h"
 
 #include "LUT.h"
 #include "Generated/SpriteData.inc.h"
@@ -479,6 +480,9 @@ void Renderer::DrawCell(uint8_t x, uint8_t y)
 	case CellType::Exit:
 		DrawObject(exitSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2);
 		return;
+	case CellType::Urn:
+		DrawObject(urnSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2);
+		return;
 	}
 
 	if(numBufferSlicesFilled >= DISPLAY_WIDTH)
@@ -509,7 +513,7 @@ void Renderer::DrawCell(uint8_t x, uint8_t y)
 #if WITH_IMAGE_TEXTURES
 	const uint16_t* texture = wallTextureData + (16 * (cellType - 1));
 #elif WITH_VECTOR_TEXTURES
-	const uint8_t* texture = (const uint8_t*) pgm_read_ptr(&textures[(uint8_t)cellType - 1]);
+	const uint8_t* texture = (const uint8_t*) pgm_read_ptr(&textures[(uint8_t)cellType - (uint8_t)CellType::FirstSolidCell]);
 #endif
 
 	if (!blockedLeft && camera.x < x1)
@@ -761,7 +765,7 @@ inline void DrawScaledNoOutline(const uint16_t* data, int8_t x, int8_t y, uint8_
 			const uint8_t u = pgm_read_byte(&lut[i / scaleMultiplier]);
 			int8_t outY = y >= 0 ? y : 0;
 			uint8_t bufferPos = (outY & 7);
-			uint8_t* screenBuffer = GetScreenBuffer() + outX + ((outY & 0x38) << 4);
+			uint8_t* screenBuffer = Platform::GetScreenBuffer() + outX + ((outY & 0x38) << 4);
 			uint8_t localBuffer = *screenBuffer;
 			uint8_t writeMask = pgm_read_byte(&scaleDrawWriteMasks[bufferPos]);
 			uint16_t transparencyColumn = pgm_read_word(&data[u * 2]);
@@ -1013,6 +1017,11 @@ void Renderer::DrawObject(const uint16_t* spriteData, int16_t x, int16_t y)
 			int16_t spriteSize = (3 * screenW) / 4;
 			QueueSprite(spriteData, screenX - spriteSize, GetHorizon(screenX) - screenW / 4, (uint8_t) spriteSize, inverseCameraDistance);
 		}
+		else if (spriteData == urnSpriteData)
+		{
+			int16_t spriteSize = (5 * screenW) / 8;
+			QueueSprite(spriteData, screenX - spriteSize, GetHorizon(screenX) - screenW / 8, (uint8_t)spriteSize, inverseCameraDistance);
+		}
 		else
 		{
 			int16_t spriteSize = (screenW) / 2;
@@ -1099,6 +1108,7 @@ void Renderer::Render()
 
 	DrawCells();
 
+	EnemyManager::Draw();
 	ProjectileManager::Draw();
 	ParticleSystemManager::Draw();
 	

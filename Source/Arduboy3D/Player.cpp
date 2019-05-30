@@ -4,6 +4,7 @@
 #include "Projectile.h"
 #include "Platform.h"
 #include "Draw.h"
+#include "Enemy.h"
 
 #define USE_ROTATE_BOB 0
 #define STRAFE_TILT 14
@@ -160,4 +161,40 @@ void Player::Tick()
 
 	velocityX = (velocityX * 7) / 8;
 	velocityY = (velocityY * 7) / 8;
+}
+
+bool Player::CheckCollisions()
+{
+	if (IsWorldColliding())
+	{
+		return true;
+	}
+
+	if (EnemyManager::GetOverlappingEnemy(*this))
+	{
+		return true;
+	}
+
+	return false;
+}
+
+void Player::Move(int16_t deltaX, int16_t deltaY)
+{
+	x += deltaX;
+	y += deltaY;
+
+	if (CheckCollisions())
+	{
+		y -= deltaY;
+		if (CheckCollisions())
+		{
+			x -= deltaX;
+			y += deltaY;
+
+			if (CheckCollisions())
+			{
+				y -= deltaY;
+			}
+		}
+	}
 }

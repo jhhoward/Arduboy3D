@@ -2,6 +2,38 @@
 #include "Map.h"
 #include "FixedMath.h"
 
+uint8_t MapGenerator::GetDistanceToCellType(uint8_t x, uint8_t y, CellType cellType)
+{
+	uint8_t ringWidth = 3;
+
+	for (uint8_t offset = 1; offset < Map::width; offset++)
+	{
+		for (uint8_t i = 0; i < ringWidth; i++)
+		{
+			if (Map::GetCellSafe(x - offset + i, y - offset) == cellType)
+			{
+				return offset;
+			}
+			if (Map::GetCellSafe(x - offset + i, y + offset) == cellType)
+			{
+				return offset;
+			}
+			if (Map::GetCellSafe(x - offset, y - offset + i) == cellType)
+			{
+				return offset;
+			}
+			if (Map::GetCellSafe(x + offset, y - offset + i) == cellType)
+			{
+				return offset;
+			}
+		}
+
+		ringWidth += 2;
+	}
+
+	return 0xff;
+}
+
 uint8_t MapGenerator::CountNeighbours(uint8_t x, uint8_t y)
 {
 	uint8_t result = 0;
@@ -22,6 +54,37 @@ uint8_t MapGenerator::CountNeighbours(uint8_t x, uint8_t y)
 		result++;
 	if (Map::GetCellSafe(x + 1, y - 1) == CellType::Empty)
 		result++;
+
+	return result;
+}
+
+MapGenerator::NeighbourInfo MapGenerator::GetCellNeighbourInfo(uint8_t x, uint8_t y)
+{
+	NeighbourInfo result;
+
+	result.count = 0;
+	result.mask = 0;
+
+	if (Map::IsSolid(x, y - 1))
+	{
+		result.hasNorth = true;
+		result.count++;
+	}
+	if (Map::IsSolid(x + 1, y))
+	{
+		result.hasEast = true;
+		result.count++;
+	}
+	if (Map::IsSolid(x, y + 1))
+	{
+		result.hasSouth = true;
+		result.count++;
+	}
+	if (Map::IsSolid(x - 1, y))
+	{
+		result.hasWest = true;
+		result.count++;
+	}
 
 	return result;
 }
@@ -373,6 +436,7 @@ void MapGenerator::Generate()
 	{
 		uint8_t attempts = 255;
 		uint8_t toSpawn = 64;
+		uint8_t minSpacing = 3;
 
 		while (attempts > 0 && toSpawn > 0)
 		{
@@ -381,25 +445,9 @@ void MapGenerator::Generate()
 
 			if (Map::GetCellSafe(x, y) == CellType::Empty)
 			{
-				uint8_t walls = 0;
-				if (Map::GetCellSafe(x + 1, y) == CellType::BrickWall)
-				{
-					walls++;
-				}
-				if (Map::GetCellSafe(x - 1, y) == CellType::BrickWall)
-				{
-					walls++;
-				}
-				if (Map::GetCellSafe(x, y + 1) == CellType::BrickWall)
-				{
-					walls++;
-				}
-				if (Map::GetCellSafe(x, y - 1) == CellType::BrickWall)
-				{
-					walls++;
-				}
+				NeighbourInfo info = GetCellNeighbourInfo(x, y);
 
-				if (walls == 1)
+				if(info.count == 1 && GetDistanceToCellType(x, y, CellType::Torch) > minSpacing)
 				{
 					Map::SetCell(x, y, CellType::Torch);
 					toSpawn--;
@@ -415,21 +463,51 @@ void MapGenerator::Generate()
 	{
 		uint8_t attempts = 255;
 		uint8_t monstersToSpawn = 16;
+		CellType monsterType = CellType::Skeleton;
+		uint8_t minSpacing = 3;
 
 		while (attempts > 0 && monstersToSpawn > 0)
 		{
 			uint8_t x = Random() % Map::width;
 			uint8_t y = Random() % Map::height;
 
-			if (Map::GetCellSafe(x, y) == CellType::Empty
-				&& Map::GetCellSafe(x + 1, y) == CellType::Empty
-				&& Map::GetCellSafe(x - 1, y) == CellType::Empty
-				&& Map::GetCellSafe(x, y + 1) == CellType::Empty
-				&& Map::GetCellSafe(x, y - 1) == CellType::Empty)
+			if (Map::GetCellSafe(x, y) == CellType::Empty)
 			{
-				Map::SetCell(x, y, CellType::Skeleton);
-				monstersToSpawn--;
-				attempts = 255;
+				NeighbourInfo info = GetCellNeighbourInfo(x, y);
+				if (info.count == 0 && GetDistanceToCellType(x, y, monsterType) > minSpacing)
+				{
+					Map::SetCell(x, y, monsterType);
+					monstersToSpawn--;
+					attempts = 255;
+				}
+			}
+
+			attempts--;
+		}
+	}
+
+	// Add blocking decorations
+	{
+		uint8_t attempts = 255;
+		uint8_t toSpawn = 255;
+		CellType cellType = CellType::Urn;
+		uint8_t minSpacing = 3;
+
+		while (attempts > 0 && toSpawn > 0)
+		{
+			uint8_t x = Random() % Map::width;
+			uint8_t y = Random() % Map::height;
+
+			if (Map::GetCellSafe(x, y) == CellType::Empty)
+			{
+				NeighbourInfo info = GetCellNeighbourInfo(x, y);
+
+				if(info.IsCorner() && GetDistanceToCellType(x, y, cellType) > minSpacing)
+				{
+					Map::SetCell(x, y, cellType);
+					toSpawn--;
+					attempts = 255;
+				}
 			}
 
 			attempts--;

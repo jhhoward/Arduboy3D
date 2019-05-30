@@ -15,4 +15,7 @@ public:
 
 	void Tick();
 	void Fire();
+	void Move(int16_t deltaX, int16_t deltaY);
+	bool CheckCollisions();
+
 };

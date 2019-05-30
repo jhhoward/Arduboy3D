@@ -49,6 +49,7 @@ void ParticleSystem::Draw(int x, int halfScale)
 {
 	int scale = 2 * halfScale;
 	int8_t horizon = Renderer::GetHorizon(x);
+	uint8_t colour = isWhite ? COLOUR_WHITE : COLOUR_BLACK;
 	
 	for (int n = 0; n < PARTICLES_PER_SYSTEM; n++)
 	{
@@ -63,10 +64,10 @@ void ParticleSystem::Draw(int x, int halfScale)
 
 			if (outX >= 0 && outY >= 0 && outX < DISPLAY_WIDTH - 1 && outY < DISPLAY_HEIGHT - 1 && halfScale >= Renderer::wBuffer[outX])
 			{
-				Platform::PutPixel(outX, outY, COLOUR_BLACK);
-				Platform::PutPixel(outX + 1, outY, COLOUR_BLACK);
-				Platform::PutPixel(outX + 1, outY + 1, COLOUR_BLACK);
-				Platform::PutPixel(outX, outY + 1, COLOUR_BLACK);
+				Platform::PutPixel(outX, outY, colour);
+				Platform::PutPixel(outX + 1, outY, colour);
+				Platform::PutPixel(outX + 1, outY + 1, colour);
+				Platform::PutPixel(outX, outY + 1, colour);
 			}
 		}
 	}
@@ -138,7 +139,7 @@ void ParticleSystemManager::Update()
 	}	
 }
 
-void ParticleSystemManager::CreateExplosion(int16_t worldX, int16_t worldY)
+void ParticleSystemManager::CreateExplosion(int16_t worldX, int16_t worldY, bool isWhite)
 {
 	for(uint8_t n = 0; n < MAX_SYSTEMS; n++)
 	{
@@ -149,6 +150,7 @@ void ParticleSystemManager::CreateExplosion(int16_t worldX, int16_t worldY)
 			system.worldX = worldX;
 			system.worldY = worldY;
 			system.isActive = true;
+			system.isWhite = isWhite;
 			system.Explode(PARTICLES_PER_SYSTEM);
 			
 			return;

@@ -3,6 +3,7 @@
 #include "Map.h"
 
 #define COLLISION_SIZE 48
+#define ENTITY_SIZE 192
 
 bool Entity::IsWorldColliding()
 {
@@ -12,40 +13,9 @@ bool Entity::IsWorldColliding()
 		|| Map::IsBlockedAtWorldPosition(x - COLLISION_SIZE, y + COLLISION_SIZE);
 }
 
-bool Entity::CheckCollisions(MoveResult& collisionResult)
+bool Entity::IsOverlappingEntity(const Entity& other) const
 {
-	if (IsWorldColliding())
-	{
-		collisionResult.didCollide = true;
-		return true;
-	}
-
-	return false;
+	return (x >= other.x - ENTITY_SIZE && x <= other.x + ENTITY_SIZE
+		&& y >= other.y - ENTITY_SIZE && y <= other.y + ENTITY_SIZE);
 }
 
-MoveResult Entity::Move(int16_t deltaX, int16_t deltaY)
-{
-	MoveResult result;
-	result.collidedEntity = nullptr;
-	result.didCollide = false;
-
-	x += deltaX;
-	y += deltaY;
-	
-	if (CheckCollisions(result))
-	{
-		y -= deltaY;
-		if (CheckCollisions(result))
-		{
-			x -= deltaX;
-			y += deltaY;
-
-			if (CheckCollisions(result))
-			{
-				y -= deltaY;
-			}
-		}
-	}
-
-	return result;
-}

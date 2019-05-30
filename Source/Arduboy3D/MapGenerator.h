@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include "Map.h"
 
 class MapGenerator
 {
@@ -30,6 +31,23 @@ private:
 		};
 
 		uint8_t count;
+
+		bool IsCorner() const 
+		{
+			if (count != 2)
+				return false;
+
+			if (hasNorth && hasEast)
+				return true;
+			if (hasEast && hasSouth)
+				return true;
+			if (hasSouth && hasWest)
+				return true;
+			if (hasWest && hasNorth)
+				return true;
+
+			return false;
+		}
 	};
 
 	static uint8_t CountNeighbours(uint8_t x, uint8_t y);
@@ -37,4 +55,6 @@ private:
 	static NeighbourInfo GetRoomNeighbourMask(uint8_t x, uint8_t y, uint8_t w, uint8_t h);
 	static void SplitMap(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t doorX, uint8_t doorY);
 
+	static NeighbourInfo GetCellNeighbourInfo(uint8_t x, uint8_t y);
+	static uint8_t GetDistanceToCellType(uint8_t x, uint8_t y, CellType cellType);
 };

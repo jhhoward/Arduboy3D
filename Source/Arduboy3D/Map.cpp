@@ -9,12 +9,12 @@ uint8_t Map::level[Map::width * Map::height / 2];
 
 bool Map::IsBlocked(uint8_t x, uint8_t y)
 {
-	return GetCellSafe(x, y) == CellType::BrickWall;
+	return GetCellSafe(x, y) >= CellType::FirstCollidableCell;
 }
 
 bool Map::IsSolid(uint8_t x, uint8_t y)
 {
-	return GetCellSafe(x, y) == CellType::BrickWall;
+	return GetCellSafe(x, y) >= CellType::FirstSolidCell;
 }
 
 CellType Map::GetCell(uint8_t x, uint8_t y) 

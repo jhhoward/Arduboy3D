@@ -5,10 +5,22 @@
 enum class CellType : uint8_t 
 {
 	Empty = 0,
-	BrickWall,
+
+	// Monster types
 	Skeleton,
+
+	// Non collidable decorations
 	Torch,
-	Exit
+	Exit,
+
+	// Collidable decorations
+	Urn,
+
+	// Solid cells
+	BrickWall,
+	
+	FirstCollidableCell = Urn,
+	FirstSolidCell = BrickWall
 };
 
 class Map

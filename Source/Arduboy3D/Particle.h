@@ -19,6 +19,7 @@ struct ParticleSystem
 	static constexpr int8_t gravity = 3;
 	int16_t worldX, worldY;
 	bool isActive : 1;
+	bool isWhite : 1;
 	Particle particles[PARTICLES_PER_SYSTEM];
 
 	void Init();
@@ -35,5 +36,5 @@ public:
 	
 	static void Draw();
 	static void Update();
-	static void CreateExplosion(int16_t x, int16_t y);
+	static void CreateExplosion(int16_t x, int16_t y, bool isWhite = false);
 };

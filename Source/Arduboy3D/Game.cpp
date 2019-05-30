@@ -8,6 +8,7 @@
 #include "MapGenerator.h"
 #include "Platform.h"
 #include "Entity.h"
+#include "Enemy.h"
 
 Player Game::player;
 
@@ -17,6 +18,9 @@ void Game::Init()
 
 	player.x = CELL_SIZE * 1 + CELL_SIZE / 2;
 	player.y = CELL_SIZE * 1 + CELL_SIZE / 2;
+	
+	EnemyManager::SpawnEnemies();
+	
 }
 
 void Game::Tick()
@@ -29,4 +33,5 @@ void Game::Tick()
 
 	ProjectileManager::Update();
 	ParticleSystemManager::Update();
+	EnemyManager::Update();
 }
