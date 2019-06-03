@@ -14,17 +14,20 @@ Player Game::player;
 
 void Game::Init()
 {
+	EnemyManager::Init();
 	MapGenerator::Generate();
 
 	player.x = CELL_SIZE * 1 + CELL_SIZE / 2;
 	player.y = CELL_SIZE * 1 + CELL_SIZE / 2;
 	
 	EnemyManager::SpawnEnemies();
-	
+	//EnemyManager::Spawn(EnemyType::Skeleton, player.x + CELL_SIZE * 3, player.y);
 }
 
 void Game::Tick()
 {
+	Renderer::globalAnimationFrame++;
+
 	player.Tick();
 
 	Renderer::camera.x = player.x;

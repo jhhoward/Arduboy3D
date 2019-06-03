@@ -4,23 +4,47 @@
 #include "FixedMath.h"
 #include "Particle.h"
 #include "Enemy.h"
+#include "Generated/SpriteTypes.h"
 
 Projectile ProjectileManager::projectiles[ProjectileManager::MAX_PROJECTILES];
 
-void ProjectileManager::FireProjectile(int16_t x, int16_t y, uint8_t angle)
+Projectile* ProjectileManager::FireProjectile(Entity* owner, int16_t x, int16_t y, uint8_t angle)
 {
 	for(uint8_t n = 0; n < MAX_PROJECTILES; n++)
 	{
 		Projectile& p = projectiles[n];
 		if(p.life == 0)
 		{
+			if (owner == &Game::player)
+				p.ownerId = Projectile::playerOwnerId;
+			else
+			{
+				for (uint8_t n = 0; n < EnemyManager::maxEnemies; n++)
+				{
+					if (&EnemyManager::enemies[n] == owner)
+					{
+						p.ownerId = n;
+						break;
+					}
+				}
+			}
+
 			p.life = 255;
 			p.x = x;
 			p.y = y;
 			p.angle = angle;
-			return;
+			return &p;
 		}
 	}
+
+	return nullptr;
+}
+
+Entity* Projectile::GetOwner() const
+{
+	if (ownerId == playerOwnerId)
+		return &Game::player;
+	return &EnemyManager::enemies[ownerId];
 }
 
 void ProjectileManager::Update()
@@ -40,15 +64,9 @@ void ProjectileManager::Update()
 
 			bool hitAnything = false;
 
-			Enemy* overlappingEnemy = EnemyManager::GetOverlappingEnemy(p);
-			if (overlappingEnemy)
-			{
-				overlappingEnemy->Damage();
-				ParticleSystemManager::CreateExplosion(p.x, p.y, true);
+			Entity* owner = p.GetOwner();
 
-				hitAnything = true;
-			}
-			else if (Map::IsBlockedAtWorldPosition(p.x, p.y))
+			if (Map::IsBlockedAtWorldPosition(p.x, p.y))
 			{
 				uint8_t cellX = p.x / CELL_SIZE;
 				uint8_t cellY = p.y / CELL_SIZE;
@@ -61,6 +79,24 @@ void ProjectileManager::Update()
 
 				hitAnything = true;
 			}
+			else
+			{
+				if (owner == &Game::player)
+				{
+					Enemy* overlappingEnemy = EnemyManager::GetOverlappingEnemy(p.x, p.y);
+					if (overlappingEnemy)
+					{
+						overlappingEnemy->Damage();
+						ParticleSystemManager::CreateExplosion(p.x, p.y, true);
+
+						hitAnything = true;
+					}
+				}
+				else if(Game::player.IsOverlappingPoint(p.x, p.y))
+				{
+					hitAnything = true;
+				}
+			}
 
 			if (hitAnything)
 			{
@@ -70,4 +106,16 @@ void ProjectileManager::Update()
 			}
 		}
 	}	
+}
+
+void ProjectileManager::Draw()
+{
+	for (uint8_t n = 0; n < MAX_PROJECTILES; n++)
+	{
+		Projectile& p = projectiles[n];
+		if (p.life > 0)
+		{
+			Renderer::DrawObject(projectileSpriteData, p.x, p.y, 32, AnchorType::BelowCenter);
+		}
+	}
 }

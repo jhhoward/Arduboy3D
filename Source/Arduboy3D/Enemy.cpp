@@ -4,16 +4,50 @@
 #include "Map.h"
 #include "FixedMath.h"
 #include "Game.h"
+#include "Projectile.h"
+#include "Generated/SpriteTypes.h"
 
 Enemy EnemyManager::enemies[maxEnemies];
 
+const EnemyArchetype Enemy::archetypes[(int)EnemyType::NumEnemyTypes - 1] PROGMEM =
+{
+	{
+		// Skeleton
+		skeletonSpriteData,
+		50,					// hp
+		6,					// speed
+		false,				// isRanged
+		96,					// sprite scale
+		AnchorType::Floor	// sprite anchor
+	},
+	{
+		// Mage
+		mageSpriteData,
+		50,					// hp
+		5,					// speed
+		true,				// isRanged
+		96,					// sprite scale
+		AnchorType::Floor	// sprite anchor
+	}
+};
+
 void Enemy::Init(EnemyType initType, int16_t initX, int16_t initY)
 {
+	state = EnemyState::Idle;
 	type = initType;
 	x = initX;
 	y = initY;
+	frameDelay = 0;
 	targetCellX = x / CELL_SIZE;
 	targetCellY = y / CELL_SIZE;
+	hp = GetArchetype()->GetHP();
+}
+
+const EnemyArchetype* Enemy::GetArchetype() const
+{
+	if (type == EnemyType::None)
+		return nullptr;
+	return &archetypes[(int)type - 1];
 }
 
 int16_t Clamp(int16_t x, int16_t min, int16_t max)
@@ -34,14 +68,15 @@ bool Enemy::TryPickCell(int8_t newX, int8_t newY)
 	if(Map::IsBlocked(newX, targetCellY)) // && !engine.map.isDoor(newX, targetCellZ))
 		return false;
 
-	//for(int n = 0; n < MAX_ACTIVE_ACTORS; n++)
-	//{
-	//	if(this != &engine.actors[n] && engine.actors[n].type != ActorType_Empty && engine.actors[n].hp > 0)
-	//	{
-	//		if(engine.actors[n].targetCellX == newX && engine.actors[n].targetCellZ == newZ)
-	//			return false;
-	//	}
-	//}
+	for(uint8_t n = 0; n < EnemyManager::maxEnemies; n++)
+	{
+		Enemy& other = EnemyManager::enemies[n];
+		if(this != &other && other.IsValid())
+		{
+			if(other.targetCellX == newX && other.targetCellY == newY)
+				return false;
+		}
+	}
 
 	targetCellX = newX;
 	targetCellY = newY;
@@ -58,11 +93,24 @@ bool Enemy::TryPickCells(int8_t deltaX, int8_t deltaY)
 		|| TryPickCell(targetCellX + deltaX, targetCellY - deltaY);
 }
 
+uint8_t Enemy::GetPlayerCellDistance() const
+{
+	uint8_t dx = ABS(Game::player.x - x) / CELL_SIZE;
+	uint8_t dy = ABS(Game::player.y - y) / CELL_SIZE;
+	return dx > dy ? dx : dy;
+}
+
 void Enemy::PickNewTargetCell()
 {
 	int8_t deltaX = (int8_t) Clamp((Game::player.x / CELL_SIZE) - targetCellX, -1, 1);
 	int8_t deltaY = (int8_t) Clamp((Game::player.y / CELL_SIZE) - targetCellY, -1, 1);
 	uint8_t dodgeChance = (uint8_t) Random();
+
+	if (GetArchetype()->GetIsRanged() && GetPlayerCellDistance() < 3)
+	{
+		deltaX = -deltaX;
+		deltaY = -deltaY;
+	}
 
 	if(deltaX == 0)
 	{
@@ -101,7 +149,7 @@ bool Enemy::TryMove()
 	int16_t targetX = (targetCellX * CELL_SIZE) + CELL_SIZE / 2;
 	int16_t targetY = (targetCellY * CELL_SIZE) + CELL_SIZE / 2;
 
-	constexpr int16_t maxDelta = 6;
+	int16_t maxDelta = GetArchetype()->GetMovementSpeed();
 
 	int16_t deltaX = Clamp(targetX - x, -maxDelta, maxDelta);
 	int16_t deltaY = Clamp(targetY - y, -maxDelta, maxDelta);
@@ -123,11 +171,117 @@ bool Enemy::TryMove()
 	return true;	
 }
 
+bool Enemy::FireProjectile(uint8_t angle)
+{
+	return ProjectileManager::FireProjectile(this, x, y, angle) != nullptr;
+}
+
+bool Enemy::TryFireProjectile()
+{
+	int8_t deltaX = (Game::player.x - x) / CELL_SIZE;
+	int8_t deltaY = (Game::player.y - y) / CELL_SIZE;
+
+	if (deltaX == 0)
+	{
+		if (deltaY < 0)
+		{
+			return FireProjectile(FIXED_ANGLE_270);
+		}
+		else if (deltaY > 0)
+		{
+			return FireProjectile(FIXED_ANGLE_90);
+		}
+	}
+	else if (deltaY == 0)
+	{
+		if (deltaX < 0)
+		{
+			return FireProjectile(FIXED_ANGLE_180);
+		}
+		else if (deltaX > 0)
+		{
+			return FireProjectile(0);
+		}
+	}
+	else if (deltaX == deltaY)
+	{
+		if (deltaX > 0)
+		{
+			return FireProjectile(FIXED_ANGLE_45);
+		}
+		else
+		{
+			return FireProjectile(FIXED_ANGLE_180 + FIXED_ANGLE_45);
+		}
+	}
+	else if (deltaX == -deltaY)
+	{
+		if (deltaX > 0)
+		{
+			return FireProjectile(FIXED_ANGLE_270 + FIXED_ANGLE_45);
+		}
+		else
+		{
+			return FireProjectile(FIXED_ANGLE_90 + FIXED_ANGLE_45);
+		}
+	}
+
+	return false;
+}
+
+bool Enemy::ShouldFireProjectile() const
+{
+	uint8_t distance = GetPlayerCellDistance();
+	uint8_t chance = 16 / (distance > 0 ? distance : 1);
+
+	return GetArchetype()->GetIsRanged() && (Random() & 0xff) < chance && Map::IsClearLine(x, y, Game::player.x, Game::player.y);
+}
+
 void Enemy::Tick()
 {
-	TryMove();
+	if (frameDelay > 0)
+	{
+		if ((Renderer::globalAnimationFrame & 0xf) == 0)
+		{
+			frameDelay--;
+		}
+		return;
+	}
+
+	switch (state)
+	{
+	case EnemyState::Idle:
+		if (Map::IsClearLine(x, y, Game::player.x, Game::player.y))
+		{
+			state = EnemyState::Moving;
+		}
+		break;
+	case EnemyState::Moving:
+		TryMove();
+
+		if (ShouldFireProjectile())
+		{
+			if (TryFireProjectile())
+			{
+				state = EnemyState::Attacking;
+				frameDelay = 3;
+			}
+		}
+		break;
+	case EnemyState::Attacking:
+		state = EnemyState::Moving;
+		break;
+	}
 }
-	
+
+void EnemyManager::Init()
+{
+	for (uint8_t n = 0; n < maxEnemies; n++)
+	{
+		enemies[n].Clear();
+	}
+}
+
 void EnemyManager::Update()
 {
 	for(uint8_t n = 0; n < maxEnemies; n++)
@@ -139,8 +293,6 @@ void EnemyManager::Update()
 	}
 }
 
-extern const uint16_t skeletonSpriteData[];
-
 void EnemyManager::Draw()
 {
 	for(uint8_t n = 0; n < maxEnemies; n++)
@@ -148,7 +300,8 @@ void EnemyManager::Draw()
 		Enemy& enemy = enemies[n];
 		if(enemy.IsValid())
 		{
-			Renderer::DrawObject(skeletonSpriteData, enemy.x, enemy.y);
+			const EnemyArchetype* archetype = enemy.GetArchetype();
+			Renderer::DrawObject(archetype->GetSpriteData(), enemy.x, enemy.y, archetype->GetSpriteScale(), archetype->GetSpriteAnchor());
 		}
 	}
 }
@@ -174,7 +327,14 @@ void EnemyManager::SpawnEnemies()
 			switch (Map::GetCellSafe(x, y))
 			{
 			case CellType::Skeleton:
-				EnemyManager::Spawn(EnemyType::Skeleton, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2);
+				if ((Random() % 2) == 0)
+				{
+					EnemyManager::Spawn(EnemyType::Mage, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2);
+				}
+				else
+				{
+					EnemyManager::Spawn(EnemyType::Skeleton, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2);
+				}
 				Map::SetCell(x, y, CellType::Empty);
 				break;
 			}
@@ -185,9 +345,9 @@ void EnemyManager::SpawnEnemies()
 
 Enemy* EnemyManager::GetOverlappingEnemy(Entity& entity)
 {
-	for (uint8_t n = 0; n < EnemyManager::maxEnemies; n++)
+	for (uint8_t n = 0; n < maxEnemies; n++)
 	{
-		Enemy& enemy = EnemyManager::enemies[n];
+		Enemy& enemy = enemies[n];
 		if (enemy.IsValid() && enemy.IsOverlappingEntity(entity))
 		{
 			return &enemy;
@@ -196,3 +356,18 @@ Enemy* EnemyManager::GetOverlappingEnemy(Entity& entity)
 
 	return nullptr;
 }
+
+Enemy* EnemyManager::GetOverlappingEnemy(int16_t x, int16_t y)
+{
+	for (uint8_t n = 0; n < maxEnemies; n++)
+	{
+		Enemy& enemy = enemies[n];
+		if (enemy.IsValid() && enemy.IsOverlappingPoint(x, y))
+		{
+			return &enemy;
+		}
+	}
+
+	return nullptr;
+}
+

@@ -6,7 +6,8 @@
 
 using namespace std;
 
-const char* spriteHeaderOutputPath = "Source/Arduboy3D/Generated/SpriteData.inc.h";
+const char* spriteDataHeaderOutputPath = "Source/Arduboy3D/Generated/SpriteData.inc.h";
+const char* spriteTypesHeaderOutputPath = "Source/Arduboy3D/Generated/SpriteTypes.h";
 
 enum class ImageColour
 {
@@ -30,7 +31,7 @@ ImageColour CalculateColour(vector<uint8_t>& pixels, unsigned int x, unsigned in
 	return ImageColour::Transparent;
 }
 
-void EncodeSprite3D(ofstream& fs, const char* inputPath, const char* variableName)
+void EncodeSprite3D(ofstream& typefs, ofstream& fs, const char* inputPath, const char* variableName)
 {
 	vector<uint8_t> pixels;
 	unsigned width, height;
@@ -84,10 +85,14 @@ void EncodeSprite3D(ofstream& fs, const char* inputPath, const char* variableNam
 	}
 	
 	unsigned int numFrames = width / 16;
-	
+
+	typefs << "// Generated from " << inputPath << endl;
+	typefs << "constexpr uint8_t " << variableName << "_numFrames = " << dec << numFrames << ";" << endl;
+	typefs << "extern const uint16_t " << variableName << "[];" << endl;
+
 	fs << "// Generated from " << inputPath << endl;
 	fs << "constexpr uint8_t " << variableName << "_numFrames = " << dec << numFrames << ";" << endl;
-	fs << "const uint16_t " << variableName << "[] PROGMEM =" << endl;
+	fs << "extern const uint16_t " << variableName << "[] PROGMEM =" << endl;
 	fs << "{" << endl << "\t";
 	
 	for(unsigned x = 0; x < width; x++)
@@ -105,7 +110,7 @@ void EncodeSprite3D(ofstream& fs, const char* inputPath, const char* variableNam
 	fs << "};" << endl;	
 }
 
-void EncodeTextures(ofstream& fs, const char* inputPath, const char* variableName)
+void EncodeTextures(ofstream& typefs, ofstream& fs, const char* inputPath, const char* variableName)
 {
 	vector<uint8_t> pixels;
 	unsigned width, height;
@@ -150,10 +155,14 @@ void EncodeTextures(ofstream& fs, const char* inputPath, const char* variableNam
 	}
 	
 	unsigned int numTextures = width / 16;
-	
+
+	typefs << "// Generated from " << inputPath << endl;
+	typefs << "constexpr uint8_t " << variableName << "_numTextures = " << dec << numTextures << ";" << endl;
+	typefs << "extern const uint16_t " << variableName << "[];" << endl;
+
 	fs << "// Generated from " << inputPath << endl;
 	fs << "constexpr uint8_t " << variableName << "_numTextures = " << dec << numTextures << ";" << endl;
-	fs << "const uint16_t " << variableName << "[] PROGMEM =" << endl;
+	fs << "extern const uint16_t " << variableName << "[] PROGMEM =" << endl;
 	fs << "{" << endl << "\t";
 	
 	for(unsigned x = 0; x < width; x++)
@@ -170,7 +179,7 @@ void EncodeTextures(ofstream& fs, const char* inputPath, const char* variableNam
 	fs << "};" << endl;	
 }
 
-void EncodeSprite2D(ofstream& fs, const char* inputPath, const char* variableName)
+void EncodeSprite2D(ofstream& typefs, ofstream& fs, const char* inputPath, const char* variableName)
 {
 	vector<uint8_t> pixels;
 	unsigned width, height;
@@ -302,10 +311,12 @@ void EncodeSprite2D(ofstream& fs, const char* inputPath, const char* variableNam
 			transparencyMasks.push_back(transparency);
 		}
 	}
-	
+
+	typefs << "// Generated from " << inputPath << endl;
+	typefs << "extern const uint8_t " << variableName << "[];" << endl;
+
 	fs << "// Generated from " << inputPath << endl;
-	
-	fs << "const uint8_t " << variableName << "[] PROGMEM =" << endl;
+	fs << "extern const uint8_t " << variableName << "[] PROGMEM =" << endl;
 	fs << "{" << endl;
 	fs << "\t" << dec << (x2 - x1) << ", " << dec << (y2 - y1) << "," << endl << "\t";
 	
@@ -359,23 +370,28 @@ void EncodeSprite2D(ofstream& fs, const char* inputPath, const char* variableNam
 
 int main(int argc, char* argv[])
 {
-	ofstream spritesFile;
-	
-	spritesFile.open(spriteHeaderOutputPath);
-	
-	EncodeSprite3D(spritesFile, "Images/skeleton.png", "skeletonSpriteData");
-	EncodeSprite3D(spritesFile, "Images/torch2.png", "torchSpriteData1");
-	EncodeSprite3D(spritesFile, "Images/torch3.png", "torchSpriteData2");
-	EncodeSprite3D(spritesFile, "Images/fireball.png", "projectileSpriteData");
-	EncodeSprite3D(spritesFile, "Images/exit.png", "exitSpriteData");
-	EncodeSprite3D(spritesFile, "Images/urn.png", "urnSpriteData");
+	ofstream dataFile;
+	ofstream typeFile;
 
-	EncodeSprite2D(spritesFile, "Images/hand1.png", "handSpriteData1");
-	EncodeSprite2D(spritesFile, "Images/hand2.png", "handSpriteData2");
-
-	EncodeTextures(spritesFile, "Images/textures.png", "wallTextureData");
+	dataFile.open(spriteDataHeaderOutputPath);
+	typeFile.open(spriteTypesHeaderOutputPath);
 	
-	spritesFile.close();
+	EncodeSprite3D(typeFile, dataFile, "Images/enemy.png", "skeletonSpriteData");
+	EncodeSprite3D(typeFile, dataFile, "Images/mage.png", "mageSpriteData");
+//	EncodeSprite3D(typeFile, dataFile, "Images/skeleton.png", "skeletonSpriteData");
+	EncodeSprite3D(typeFile, dataFile, "Images/torch2.png", "torchSpriteData1");
+	EncodeSprite3D(typeFile, dataFile, "Images/torch3.png", "torchSpriteData2");
+	EncodeSprite3D(typeFile, dataFile, "Images/fireball.png", "projectileSpriteData");
+	EncodeSprite3D(typeFile, dataFile, "Images/exit.png", "exitSpriteData");
+	EncodeSprite3D(typeFile, dataFile, "Images/urn.png", "urnSpriteData");
+
+	EncodeSprite2D(typeFile, dataFile, "Images/hand1.png", "handSpriteData1");
+	EncodeSprite2D(typeFile, dataFile, "Images/hand2.png", "handSpriteData2");
+
+	EncodeTextures(typeFile, dataFile, "Images/textures.png", "wallTextureData");
+	
+	dataFile.close();
+	typeFile.close();
 	
 	return 0;
 }

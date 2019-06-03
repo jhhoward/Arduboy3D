@@ -18,7 +18,7 @@ void Player::Fire()
 	int16_t projectileX = x + FixedCos(angle + FIXED_ANGLE_90 / 2) / 4;
 	int16_t projectileY = y + FixedSin(angle + FIXED_ANGLE_90 / 2) / 4;
 
-	ProjectileManager::FireProjectile(projectileX, projectileY, angle);
+	ProjectileManager::FireProjectile(this, projectileX, projectileY, angle);
 }
 
 void Player::Tick()

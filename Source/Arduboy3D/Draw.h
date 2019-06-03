@@ -24,6 +24,14 @@ enum class DrawableType : uint8_t
 	ParticleSystem
 };
 
+enum class AnchorType : uint8_t
+{
+	Floor,
+	Center,
+	BelowCenter,
+	Ceiling
+};
+
 struct QueuedDrawable
 {
 	union
@@ -48,7 +56,7 @@ public:
 
 	static void Render();
 
-	static void DrawObject(const uint16_t* spriteData, int16_t x, int16_t y);
+	static void DrawObject(const uint16_t* spriteData, int16_t x, int16_t y, uint8_t scale = 128, AnchorType anchor = AnchorType::Floor);
 	static QueuedDrawable* CreateQueuedDrawable(uint8_t inverseCameraDistance);
 	static int8_t GetHorizon(int16_t x);
 	

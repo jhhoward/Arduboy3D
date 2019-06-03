@@ -458,30 +458,31 @@ void Renderer::DrawCell(uint8_t x, uint8_t y)
 	case CellType::Torch:
 		{
 			const uint16_t* torchSpriteData = globalAnimationFrame & 4 ? torchSpriteData1 : torchSpriteData2;
+			constexpr uint8_t torchScale = 64;
 			
 			if(Map::IsSolid(x - 1, y))
 			{
-				DrawObject(torchSpriteData, x * CELL_SIZE + CELL_SIZE / 7, y * CELL_SIZE + CELL_SIZE / 2);
+				DrawObject(torchSpriteData, x * CELL_SIZE + CELL_SIZE / 7, y * CELL_SIZE + CELL_SIZE / 2, torchScale, AnchorType::Center);
 			}
 			else if(Map::IsSolid(x + 1, y))
 			{
-				DrawObject(torchSpriteData, x * CELL_SIZE + 6 * CELL_SIZE / 7, y * CELL_SIZE + CELL_SIZE / 2);
+				DrawObject(torchSpriteData, x * CELL_SIZE + 6 * CELL_SIZE / 7, y * CELL_SIZE + CELL_SIZE / 2, torchScale, AnchorType::Center);
 			}
 			else if(Map::IsSolid(x, y - 1))
 			{
-				DrawObject(torchSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 7);
+				DrawObject(torchSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 7, torchScale, AnchorType::Center);
 			}
 			else if(Map::IsSolid(x, y + 1))
 			{
-				DrawObject(torchSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + 6 * CELL_SIZE / 7);
+				DrawObject(torchSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + 6 * CELL_SIZE / 7, torchScale, AnchorType::Center);
 			}
 		}
 		return;
 	case CellType::Exit:
-		DrawObject(exitSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2);
+		DrawObject(exitSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 96);
 		return;
 	case CellType::Urn:
-		DrawObject(urnSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2);
+		DrawObject(urnSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 80);
 		return;
 	}
 
@@ -993,7 +994,7 @@ bool Renderer::TransformAndCull(int16_t worldX, int16_t worldY, int16_t& outScre
 	return true;
 }
 
-void Renderer::DrawObject(const uint16_t* spriteData, int16_t x, int16_t y)
+void Renderer::DrawObject(const uint16_t* spriteData, int16_t x, int16_t y, uint8_t scale, AnchorType anchor)
 {
 	int16_t screenX, screenW;
 
@@ -1001,32 +1002,25 @@ void Renderer::DrawObject(const uint16_t* spriteData, int16_t x, int16_t y)
 	{
 		// Bit of a hack: nudge sorting closer to the camera
 		uint8_t inverseCameraDistance = (uint8_t)(screenW + 1);
+		int16_t spriteSize = (screenW * scale) / 128;
+		int8_t outY = GetHorizon(screenX);
+
+		switch (anchor)
+		{
+		case AnchorType::Floor:
+			outY += screenW - 2 * spriteSize;
+			break;
+		case AnchorType::Center:
+			outY -= spriteSize;
+			break;
+		case AnchorType::BelowCenter:
+			break;
+		case AnchorType::Ceiling:
+			outY -= screenW;
+			break;
+		}
 		
-		if(spriteData == projectileSpriteData)
-		{
-			int16_t spriteSize = screenW / 4;
-			QueueSprite(spriteData, screenX - spriteSize, GetHorizon(screenX) - spriteSize / 2, (uint8_t) spriteSize, inverseCameraDistance);
-		}
-		else if(spriteData == skeletonSpriteData)
-		{
-			int16_t spriteSize = (3 * screenW) / 4;
-			QueueSprite(spriteData, screenX - spriteSize, GetHorizon(screenX) - screenW / 4, (uint8_t) spriteSize, inverseCameraDistance);
-		}
-		else if(spriteData == exitSpriteData)
-		{
-			int16_t spriteSize = (3 * screenW) / 4;
-			QueueSprite(spriteData, screenX - spriteSize, GetHorizon(screenX) - screenW / 4, (uint8_t) spriteSize, inverseCameraDistance);
-		}
-		else if (spriteData == urnSpriteData)
-		{
-			int16_t spriteSize = (5 * screenW) / 8;
-			QueueSprite(spriteData, screenX - spriteSize, GetHorizon(screenX) - screenW / 8, (uint8_t)spriteSize, inverseCameraDistance);
-		}
-		else
-		{
-			int16_t spriteSize = (screenW) / 2;
-			QueueSprite(spriteData, screenX - spriteSize, GetHorizon(screenX) - spriteSize, (uint8_t) spriteSize, inverseCameraDistance);
-		}
+		QueueSprite(spriteData, screenX - spriteSize, outY, (uint8_t)spriteSize, inverseCameraDistance);
 	}
 }
 
@@ -1047,18 +1041,6 @@ void Renderer::DrawWeapon()
 		//DrawSprite(x + 2, y + 2, handSpriteData1, handSpriteData1_mask, 0, 0);	
 	}
 	
-}
-
-void ProjectileManager::Draw()
-{
-	for(uint8_t n = 0; n < MAX_PROJECTILES; n++)
-	{
-		Projectile& p = projectiles[n];
-		if(p.life > 0)
-		{
-			Renderer::DrawObject(projectileSpriteData, p.x, p.y);
-		}
-	}	
 }
 
 void Renderer::DrawBackground()
@@ -1088,7 +1070,6 @@ void Renderer::Render()
 {
 	DrawBackground();
 
-	globalAnimationFrame++;
 	numBufferSlicesFilled = 0;
 	numQueuedDrawables = 0;
 	

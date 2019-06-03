@@ -4,6 +4,7 @@
 #include "FixedMath.h"
 #include "Draw.h"
 #include "Platform.h"
+#include "Enemy.h"
 
 uint8_t Map::level[Map::width * Map::height / 2];
 
@@ -84,4 +85,132 @@ void Map::DebugDraw()
 			}
 		}
 	}
+
+	if ((Renderer::globalAnimationFrame & 2) != 0)
+	{
+		for (uint8_t n = 0; n < EnemyManager::maxEnemies; n++)
+		{
+			Enemy& enemy = EnemyManager::enemies[n];
+
+			if (enemy.IsValid())
+			{
+				Platform::PutPixel(enemy.x / CELL_SIZE, enemy.y / CELL_SIZE, 1);
+			}
+		}
+	}
+}
+
+bool Map::IsClearLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2)
+{
+	int cellX1 = x1 / CELL_SIZE;
+	int cellX2 = x2 / CELL_SIZE;
+	int cellY1 = y1 / CELL_SIZE;
+	int cellY2 = y2 / CELL_SIZE;
+
+    int xdist = ABS(cellX2 - cellX1);
+
+	int partial, delta;
+	int deltafrac;
+	int xfrac, yfrac;
+	int xstep, ystep;
+	int32_t ltemp;
+	int x, y;
+
+    if (xdist > 0)
+    {
+        if (cellX2 > cellX1)
+        {
+            partial = (CELL_SIZE * (cellX1 + 1) - x1);
+            xstep = 1;
+        }
+        else
+        {
+            partial = (x1 - CELL_SIZE * (cellX1));
+            xstep = -1;
+        }
+
+        deltafrac = ABS(x2 - x1);
+        delta = y2 - y1;
+        ltemp = ((int32_t)delta * CELL_SIZE) / deltafrac;
+        if (ltemp > 0x7fffl)
+            ystep = 0x7fff;
+        else if (ltemp < -0x7fffl)
+            ystep = -0x7fff;
+        else
+            ystep = ltemp;
+        yfrac = y1 + (((int32_t)ystep*partial) / CELL_SIZE);
+
+        x = cellX1 + xstep;
+        cellX2 += xstep;
+        do
+        {
+            y = (yfrac) / CELL_SIZE;
+            yfrac += ystep;
+
+			if (IsBlocked(x, y))
+				return false;
+
+            x += xstep;
+
+            //
+            // see if the door is open enough
+            //
+            /*value &= ~0x80;
+            intercept = yfrac-ystep/2;
+
+            if (intercept>doorposition[value])
+                return false;*/
+
+        } while (x != cellX2);
+    }
+
+    int ydist = ABS(cellY2 - cellY1);
+
+    if (ydist > 0)
+    {
+        if (cellY2 > cellY1)
+        {
+            partial = (CELL_SIZE * (cellY1 + 1) - y1);
+            ystep = 1;
+        }
+        else
+        {
+            partial = (y1 - CELL_SIZE * (cellY1));
+            ystep = -1;
+        }
+
+        deltafrac = ABS(y2 - y1);
+        delta = x2 - x1;
+        ltemp = ((int32_t)delta * CELL_SIZE)/deltafrac;
+        if (ltemp > 0x7fffl)
+            xstep = 0x7fff;
+        else if (ltemp < -0x7fffl)
+            xstep = -0x7fff;
+        else
+            xstep = ltemp;
+        xfrac = x1 + (((int32_t)xstep*partial) / CELL_SIZE);
+
+        y = cellY1 + ystep;
+        cellY2 += ystep;
+        do
+        {
+            x = (xfrac) / CELL_SIZE;
+            xfrac += xstep;
+
+			if (IsBlocked(x, y))
+				return false;
+            y += ystep;
+
+            //
+            // see if the door is open enough
+            //
+            /*value &= ~0x80;
+            intercept = xfrac-xstep/2;
+
+            if (intercept>doorposition[value])
+                return false;*/
+        } while (y != cellY2);
+    }
+
+    return true;
 }
