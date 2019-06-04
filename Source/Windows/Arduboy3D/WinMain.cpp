@@ -318,6 +318,45 @@ uint8_t Platform::GetInput()
 	return inputMask;
 }
 
+/*#include "Font.h"
+void DumpFont()
+{
+	constexpr int numChars = 96;
+	constexpr int charWidth = 4;
+	constexpr int charHeight = 8;
+	constexpr int pageWidth = numChars * charWidth;
+	uint8_t fontPage[pageWidth * charHeight * 4];
+	char tempStr[2] = { 0, 0 };
+
+	for (int n = 0; n < numChars * charWidth * charHeight * 4; n++)
+	{
+		fontPage[n] = 255;
+	}
+
+	for (int n = 0; n < numChars; n++)
+	{
+		Platform::FillScreen(COLOUR_WHITE);
+		tempStr[0] = (char) (n + 32);
+		DrawString(tempStr, 0, 1);
+
+		for (int y = 0; y < charHeight; y++)
+		{
+			for (int x = 0; x < charWidth; x++)
+			{
+				if (GetPixel(x, y) == COLOUR_BLACK)
+				{
+					int index = pageWidth * y + (n * charWidth) + x;
+					fontPage[index * 4] = 0;
+					fontPage[index * 4 + 1] = 0;
+					fontPage[index * 4 + 2] = 0;
+				}
+			}
+		}
+	}
+
+	lodepng::encode("font.png", fontPage, pageWidth, charHeight);
+}*/
+
 void DebugDisplayNow()
 {
 	ResolveScreen(ScreenSurface);
@@ -351,6 +390,8 @@ int main(int argc, char* argv[])
 	ScreenTexture = SDL_CreateTexture(AppRenderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, ScreenSurface->w, ScreenSurface->h);
 
 	SDL_SetWindowPosition(AppWindow, 1900 - DISPLAY_WIDTH * 2, 1020 - DISPLAY_HEIGHT);
+
+	//DumpFont();
 
 	SeedRandom((uint16_t)time(nullptr));
 	Game::Init();
@@ -404,7 +445,7 @@ int main(int argc, char* argv[])
 			
 			Game::Tick();
 			Renderer::Render();
-			Map::DebugDraw();
+			//Map::DebugDraw();
 			
 			ResolveScreen(ScreenSurface);
 		}

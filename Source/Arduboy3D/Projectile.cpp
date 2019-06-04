@@ -10,9 +10,8 @@ Projectile ProjectileManager::projectiles[ProjectileManager::MAX_PROJECTILES];
 
 Projectile* ProjectileManager::FireProjectile(Entity* owner, int16_t x, int16_t y, uint8_t angle)
 {
-	for(uint8_t n = 0; n < MAX_PROJECTILES; n++)
+	for (Projectile& p : projectiles)
 	{
-		Projectile& p = projectiles[n];
 		if(p.life == 0)
 		{
 			if (owner == &Game::player)
@@ -49,9 +48,8 @@ Entity* Projectile::GetOwner() const
 
 void ProjectileManager::Update()
 {
-	for(uint8_t n = 0; n < MAX_PROJECTILES; n++)
+	for (Projectile& p : projectiles)
 	{
-		Projectile& p = projectiles[n];
 		if(p.life > 0)
 		{
 			p.life--;
@@ -75,6 +73,16 @@ void ProjectileManager::Update()
 				{
 					Map::SetCell(cellX, cellY, CellType::Empty);
 					ParticleSystemManager::CreateExplosion(cellX * CELL_SIZE + CELL_SIZE / 2, cellY * CELL_SIZE + CELL_SIZE / 2, true);
+
+					switch ((Random() % 4))
+					{
+					case 0:
+						EnemyManager::Spawn(EnemyType::Spider, cellX * CELL_SIZE + CELL_SIZE / 2, cellY * CELL_SIZE + CELL_SIZE / 2);
+						break;
+					case 1:
+						Map::SetCell(cellX, cellY, CellType::Potion);
+						break;
+					}
 				}
 
 				hitAnything = true;
@@ -94,6 +102,7 @@ void ProjectileManager::Update()
 				}
 				else if(Game::player.IsOverlappingPoint(p.x, p.y))
 				{
+					Game::player.Damage();
 					hitAnything = true;
 				}
 			}
@@ -108,14 +117,21 @@ void ProjectileManager::Update()
 	}	
 }
 
+void ProjectileManager::Init()
+{
+	for (Projectile& p : projectiles)
+	{
+		p.life = 0;
+	}
+}
+
 void ProjectileManager::Draw()
 {
-	for (uint8_t n = 0; n < MAX_PROJECTILES; n++)
+	for(Projectile& p : projectiles)
 	{
-		Projectile& p = projectiles[n];
 		if (p.life > 0)
 		{
-			Renderer::DrawObject(projectileSpriteData, p.x, p.y, 32, AnchorType::BelowCenter);
+			Renderer::DrawObject(p.ownerId == Projectile::playerOwnerId ? projectileSpriteData : enemyProjectileSpriteData, p.x, p.y, 32, AnchorType::BelowCenter);
 		}
 	}
 }

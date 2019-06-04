@@ -179,6 +179,70 @@ void EncodeTextures(ofstream& typefs, ofstream& fs, const char* inputPath, const
 	fs << "};" << endl;	
 }
 
+void EncodeHUDElement(ofstream& typefs, ofstream& fs, const char* inputPath, const char* variableName)
+{
+	vector<uint8_t> pixels;
+	unsigned width, height;
+	unsigned error = lodepng::decode(pixels, width, height, inputPath);
+
+	if (error)
+	{
+		cout << inputPath << " : decoder error " << error << ": " << lodepng_error_text(error) << endl;
+		return;
+	}
+
+	if (height != 8)
+	{
+		cout << inputPath << " : height must be 8 pixels" << endl;
+		return;
+	}
+
+	vector<uint8_t> colourMasks;
+
+	for (unsigned y = 0; y < height; y += 8)
+	{
+		for (unsigned x = 0; x < width; x++)
+		{
+			uint8_t colour = 0;
+
+			for (unsigned z = 0; z < 8 && y + z < height; z++)
+			{
+				uint8_t mask = (1 << z);
+
+				ImageColour pixelColour = CalculateColour(pixels, x, y + z, width);
+
+				if (pixelColour == ImageColour::White)
+				{
+					// White
+					colour |= mask;
+				}
+			}
+
+			colourMasks.push_back(colour);
+		}
+	}
+
+	typefs << "// Generated from " << inputPath << endl;
+	typefs << "extern const uint8_t " << variableName << "[];" << endl;
+
+	fs << "// Generated from " << inputPath << endl;
+	fs << "extern const uint8_t " << variableName << "[] PROGMEM =" << endl;
+	fs << "{" << endl;
+
+	for (unsigned x = 0; x < colourMasks.size(); x++)
+	{
+		fs << "0x" << hex << (int)(colourMasks[x]);
+
+		if (x != colourMasks.size() - 1)
+		{
+			fs << ",";
+		}
+	}
+
+	fs << endl;
+	fs << "};" << endl;
+}
+
 void EncodeSprite2D(ofstream& typefs, ofstream& fs, const char* inputPath, const char* variableName)
 {
 	vector<uint8_t> pixels;
@@ -379,19 +443,31 @@ int main(int argc, char* argv[])
 	EncodeSprite3D(typeFile, dataFile, "Images/enemy.png", "skeletonSpriteData");
 	EncodeSprite3D(typeFile, dataFile, "Images/mage.png", "mageSpriteData");
 //	EncodeSprite3D(typeFile, dataFile, "Images/skeleton.png", "skeletonSpriteData");
-	EncodeSprite3D(typeFile, dataFile, "Images/torch2.png", "torchSpriteData1");
-	EncodeSprite3D(typeFile, dataFile, "Images/torch3.png", "torchSpriteData2");
-	EncodeSprite3D(typeFile, dataFile, "Images/fireball.png", "projectileSpriteData");
+	EncodeSprite3D(typeFile, dataFile, "Images/torchalt1.png", "torchSpriteData1");
+	EncodeSprite3D(typeFile, dataFile, "Images/torchalt2.png", "torchSpriteData2");
+	EncodeSprite3D(typeFile, dataFile, "Images/fireball2.png", "projectileSpriteData");
+	EncodeSprite3D(typeFile, dataFile, "Images/fireball.png", "enemyProjectileSpriteData");
+	EncodeSprite3D(typeFile, dataFile, "Images/entrance.png", "entranceSpriteData");
 	EncodeSprite3D(typeFile, dataFile, "Images/exit.png", "exitSpriteData");
 	EncodeSprite3D(typeFile, dataFile, "Images/urn.png", "urnSpriteData");
+	EncodeSprite3D(typeFile, dataFile, "Images/chest.png", "chestSpriteData");
+	EncodeSprite3D(typeFile, dataFile, "Images/potion.png", "potionSpriteData");
+	EncodeSprite3D(typeFile, dataFile, "Images/bat.png", "batSpriteData");
+	EncodeSprite3D(typeFile, dataFile, "Images/spider.png", "spiderSpriteData");
 
 	EncodeSprite2D(typeFile, dataFile, "Images/hand1.png", "handSpriteData1");
 	EncodeSprite2D(typeFile, dataFile, "Images/hand2.png", "handSpriteData2");
 
 	EncodeTextures(typeFile, dataFile, "Images/textures.png", "wallTextureData");
-	
+
+	EncodeHUDElement(typeFile, dataFile, "Images/font.png", "fontPageData");
+	EncodeHUDElement(typeFile, dataFile, "Images/heart.png", "heartSpriteData");
+	EncodeHUDElement(typeFile, dataFile, "Images/mana.png", "manaSpriteData");
+
 	dataFile.close();
 	typeFile.close();
 	
 	return 0;
 }
+
+

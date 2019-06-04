@@ -89,6 +89,9 @@ private:
 	static void DrawCell(uint8_t x, uint8_t y);
 	static void DrawCells();
 	static void DrawWeapon();
+	static void DrawHUD();
+	static void DrawBar(uint8_t* screenPtr, const uint8_t* iconData, uint8_t amount, uint8_t max);
+	static void DrawDamageIndicator();
 	
 	static void DrawScaled(const uint16_t* data, int8_t x, int8_t y, uint8_t halfSize, uint8_t inverseCameraDistance);
 	

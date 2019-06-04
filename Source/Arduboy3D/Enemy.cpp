@@ -28,6 +28,24 @@ const EnemyArchetype Enemy::archetypes[(int)EnemyType::NumEnemyTypes - 1] PROGME
 		true,				// isRanged
 		96,					// sprite scale
 		AnchorType::Floor	// sprite anchor
+	},
+	{
+		// Bat
+		batSpriteData,
+		20,					// hp
+		7,					// speed
+		false,				// isRanged
+		80,					// sprite scale
+		AnchorType::Center	// sprite anchor
+	},
+	{
+		// Spider
+		spiderSpriteData,
+		20,					// hp
+		7,					// speed
+		false,				// isRanged
+		50,					// sprite scale
+		AnchorType::Floor	// sprite anchor
 	}
 };
 
@@ -68,9 +86,8 @@ bool Enemy::TryPickCell(int8_t newX, int8_t newY)
 	if(Map::IsBlocked(newX, targetCellY)) // && !engine.map.isDoor(newX, targetCellZ))
 		return false;
 
-	for(uint8_t n = 0; n < EnemyManager::maxEnemies; n++)
+	for (Enemy& other : EnemyManager::enemies)
 	{
-		Enemy& other = EnemyManager::enemies[n];
 		if(this != &other && other.IsValid())
 		{
 			if(other.targetCellX == newX && other.targetCellY == newY)
@@ -159,6 +176,13 @@ bool Enemy::TryMove()
 
 	if(IsOverlappingEntity(Game::player))
 	{
+		if (!GetArchetype()->GetIsRanged())
+		{
+			Game::player.Damage();
+			state = EnemyState::Attacking;
+			frameDelay = 3;
+		}
+
 		x -= deltaX;
 		y -= deltaY;
 		return false;
@@ -276,28 +300,27 @@ void Enemy::Tick()
 
 void EnemyManager::Init()
 {
-	for (uint8_t n = 0; n < maxEnemies; n++)
+	for (Enemy& enemy : enemies)
 	{
-		enemies[n].Clear();
+		enemy.Clear();
 	}
 }
 
 void EnemyManager::Update()
 {
-	for(uint8_t n = 0; n < maxEnemies; n++)
+	for (Enemy& enemy : enemies)
 	{
-		if(enemies[n].IsValid())
+		if(enemy.IsValid())
 		{
-			enemies[n].Tick();
+			enemy.Tick();
 		}
 	}
 }
 
 void EnemyManager::Draw()
 {
-	for(uint8_t n = 0; n < maxEnemies; n++)
+	for(Enemy& enemy : enemies)
 	{
-		Enemy& enemy = enemies[n];
 		if(enemy.IsValid())
 		{
 			const EnemyArchetype* archetype = enemy.GetArchetype();
@@ -308,11 +331,11 @@ void EnemyManager::Draw()
 
 void EnemyManager::Spawn(EnemyType enemyType, int16_t x, int16_t y)
 {
-	for(uint8_t n = 0; n < maxEnemies; n++)
+	for (Enemy& enemy : enemies)
 	{
-		if(!enemies[n].IsValid())
+		if(!enemy.IsValid())
 		{
-			enemies[n].Init(enemyType, x, y);
+			enemy.Init(enemyType, x, y);
 			return;
 		}
 	}		
@@ -326,17 +349,13 @@ void EnemyManager::SpawnEnemies()
 		{
 			switch (Map::GetCellSafe(x, y))
 			{
-			case CellType::Skeleton:
-				if ((Random() % 2) == 0)
+				case CellType::Skeleton:
 				{
-					EnemyManager::Spawn(EnemyType::Mage, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2);
+					EnemyType type = (EnemyType)(1 + (Random() % ((int)(EnemyType::NumEnemyTypes) - 1)));
+					EnemyManager::Spawn(type, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2);
+					Map::SetCell(x, y, CellType::Empty);
+					break;
 				}
-				else
-				{
-					EnemyManager::Spawn(EnemyType::Skeleton, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2);
-				}
-				Map::SetCell(x, y, CellType::Empty);
-				break;
 			}
 		}
 	}
@@ -345,9 +364,8 @@ void EnemyManager::SpawnEnemies()
 
 Enemy* EnemyManager::GetOverlappingEnemy(Entity& entity)
 {
-	for (uint8_t n = 0; n < maxEnemies; n++)
+	for (Enemy& enemy : enemies)
 	{
-		Enemy& enemy = enemies[n];
 		if (enemy.IsValid() && enemy.IsOverlappingEntity(entity))
 		{
 			return &enemy;
@@ -359,9 +377,8 @@ Enemy* EnemyManager::GetOverlappingEnemy(Entity& entity)
 
 Enemy* EnemyManager::GetOverlappingEnemy(int16_t x, int16_t y)
 {
-	for (uint8_t n = 0; n < maxEnemies; n++)
+	for (Enemy& enemy : enemies)
 	{
-		Enemy& enemy = enemies[n];
 		if (enemy.IsValid() && enemy.IsOverlappingPoint(x, y))
 		{
 			return &enemy;

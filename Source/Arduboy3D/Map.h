@@ -11,10 +11,15 @@ enum class CellType : uint8_t
 
 	// Non collidable decorations
 	Torch,
+	Entrance,
 	Exit,
+
+	// Items
+	Potion,
 
 	// Collidable decorations
 	Urn,
+	Chest,
 
 	// Solid cells
 	BrickWall,
@@ -40,6 +45,7 @@ public:
 	static CellType GetCellSafe(uint8_t x, uint8_t y);
 	static void SetCell(uint8_t x, uint8_t y, CellType cellType);
 	static void DebugDraw();
+	static void DrawMinimap();
 
 	static bool IsClearLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 

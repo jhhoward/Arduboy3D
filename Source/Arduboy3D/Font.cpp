@@ -5,6 +5,7 @@
 #include "Defines.h"
 #include "Font.h"
 #include "Platform.h"
+#include "Generated/SpriteTypes.h"
 
 // Font Definition
 const uint8_t font4x6[96][2] PROGMEM = {
@@ -329,4 +330,38 @@ uint8_t DrawCurrency(int32_t val, uint8_t x, uint8_t y)
 	DrawChar('$');
 	len++;
 	return len;
+}
+
+
+void Font::PrintString(const char* str, uint8_t line, uint8_t x)
+{
+	uint8_t* screenPtr = Platform::GetScreenBuffer();
+
+	screenPtr += DISPLAY_WIDTH * line + x;
+
+	for (;;)
+	{
+		char c = pgm_read_byte(str++);
+		if (!c)
+			break;
+
+		DrawChar(screenPtr, c);
+		screenPtr += glyphWidth;
+	}
+}
+
+void Font::PrintInt(int16_t value, uint8_t line, uint8_t x)
+{
+
+}
+
+void Font::DrawChar(uint8_t* screenPtr, char c)
+{
+	const uint8_t index = ((unsigned char)(c)) - firstGlyphIndex;
+	const uint8_t* fontPtr = fontPageData + glyphWidth * index;
+
+	screenPtr[0] = pgm_read_byte(&fontPtr[0]);
+	screenPtr[1] = pgm_read_byte(&fontPtr[1]);
+	screenPtr[2] = pgm_read_byte(&fontPtr[2]);
+	screenPtr[3] = pgm_read_byte(&fontPtr[3]);
 }

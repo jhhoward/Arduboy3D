@@ -366,6 +366,9 @@ void MapGenerator::SplitMap(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t 
 
 void MapGenerator::Generate()
 {
+	uint8_t playerStartX = 1;
+	uint8_t playerStartY = 1;
+
 	for (int y = 0; y < Map::height; y++)
 	{
 		for (int x = 0; x < Map::width; x++)
@@ -471,7 +474,7 @@ void MapGenerator::Generate()
 			uint8_t x = Random() % Map::width;
 			uint8_t y = Random() % Map::height;
 
-			if (Map::GetCellSafe(x, y) == CellType::Empty)
+			if (Map::GetCellSafe(x, y) == CellType::Empty && Map::IsClearLine(x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, playerStartX * CELL_SIZE + CELL_SIZE / 2, playerStartY * CELL_SIZE + CELL_SIZE / 2) == false)
 			{
 				NeighbourInfo info = GetCellNeighbourInfo(x, y);
 				if (info.count == 0 && GetDistanceToCellType(x, y, monsterType) > minSpacing)
@@ -514,6 +517,7 @@ void MapGenerator::Generate()
 		}
 	}
 
-	// Add exit
-	Map::SetCell(1, 1, CellType::Exit);
+	// Add entrance and exit
+	Map::SetCell(1, 1, CellType::Entrance);
+	Map::SetCell(Map::width - 2, Map::height - 2, CellType::Exit);
 }

@@ -214,3 +214,41 @@ bool Map::IsClearLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2)
 
     return true;
 }
+
+void Map::DrawMinimap()
+{
+	constexpr uint8_t minimapWidth = 24;
+	constexpr uint8_t minimapHeight = 18;
+	constexpr uint8_t minimapX = 0; //DISPLAY_WIDTH / 2 - minimapWidth / 2;
+	constexpr uint8_t minimapY = 0; //DISPLAY_HEIGHT - minimapHeight;
+	uint8_t playerCellX = Game::player.x / CELL_SIZE;
+	uint8_t playerCellY = Game::player.y / CELL_SIZE;
+	uint8_t startCellX = playerCellX - minimapWidth / 2;
+	uint8_t startCellY = playerCellY - minimapHeight / 2;
+
+	uint8_t outX = minimapX;
+	uint8_t cellX = startCellX;
+
+	for (uint8_t x = 0; x < minimapWidth; x++)
+	{
+		uint8_t outY = minimapY;
+		uint8_t cellY = startCellY;
+
+		for (uint8_t y = 0; y < minimapHeight; y++)
+		{
+			if (cellX == playerCellX && cellY == playerCellY)
+			{
+				Platform::PutPixel(outX, outY, (Renderer::globalAnimationFrame & 3) ? COLOUR_BLACK : COLOUR_WHITE);
+			}
+			else
+			{
+				Platform::PutPixel(outX, outY, cellX < width && cellY < height && IsSolid(cellX, cellY) ? COLOUR_BLACK : COLOUR_WHITE);
+			}
+			outY++;
+			cellY++;
+		}
+
+		outX++;
+		cellX++;
+	}
+}

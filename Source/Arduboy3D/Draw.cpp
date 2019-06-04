@@ -8,6 +8,7 @@
 #include "Projectile.h"
 #include "Platform.h"
 #include "Enemy.h"
+#include "Font.h"
 
 #include "LUT.h"
 #include "Generated/SpriteData.inc.h"
@@ -458,7 +459,7 @@ void Renderer::DrawCell(uint8_t x, uint8_t y)
 	case CellType::Torch:
 		{
 			const uint16_t* torchSpriteData = globalAnimationFrame & 4 ? torchSpriteData1 : torchSpriteData2;
-			constexpr uint8_t torchScale = 64;
+			constexpr uint8_t torchScale = 75;
 			
 			if(Map::IsSolid(x - 1, y))
 			{
@@ -478,11 +479,20 @@ void Renderer::DrawCell(uint8_t x, uint8_t y)
 			}
 		}
 		return;
+	case CellType::Entrance:
+		DrawObject(entranceSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 96, AnchorType::Ceiling);
+		return;
 	case CellType::Exit:
 		DrawObject(exitSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 96);
 		return;
 	case CellType::Urn:
 		DrawObject(urnSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 80);
+		return;
+	case CellType::Potion:
+		DrawObject(potionSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 64);
+		return;
+	case CellType::Chest:
+		DrawObject(chestSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 96);
 		return;
 	}
 
@@ -1066,6 +1076,70 @@ void Renderer::DrawBackground()
 	}
 }
 
+void Renderer::DrawBar(uint8_t* screenPtr, const uint8_t* iconData, uint8_t amount, uint8_t max)
+{
+	constexpr uint8_t iconWidth = 8;
+	constexpr uint8_t barWidth = 32;
+	constexpr uint8_t unfilledBar = 0xfe;
+	constexpr uint8_t filledBar = 0xc6;
+	
+	uint8_t fillAmount = (amount * barWidth) / max;
+	uint8_t x = 0;
+
+	while (x < iconWidth)
+	{
+		screenPtr[x] = pgm_read_byte(&iconData[x]);
+		x++;
+	}
+
+	while (fillAmount--)
+	{
+		screenPtr[x++] = filledBar;
+	}
+
+	while (x < barWidth + iconWidth)
+	{
+		screenPtr[x++] = unfilledBar;
+	}
+
+	screenPtr[x++] = unfilledBar;
+	screenPtr[x] = 0;
+}
+
+void Renderer::DrawDamageIndicator()
+{
+	uint8_t* upper = Platform::GetScreenBuffer();
+	uint8_t* lower = upper + DISPLAY_WIDTH * 7;
+
+	for (int x = 1; x < DISPLAY_WIDTH - 1; x++)
+	{
+		upper[x] &= 0xfe;
+		lower[x] &= 0x7f;
+	}
+
+	uint8_t* ptr = Platform::GetScreenBuffer();
+	for (int y = 0; y < DISPLAY_HEIGHT / 8; y++)
+	{
+		*ptr = 0;
+		ptr += (DISPLAY_WIDTH - 1);
+		*ptr = 0;
+		ptr++;
+	}
+}
+
+void Renderer::DrawHUD()
+{
+	constexpr uint8_t barWidth = 40;
+	uint8_t* screenBuffer = Platform::GetScreenBuffer();
+	uint8_t* screenPtr = screenBuffer + DISPLAY_WIDTH * 6;
+
+	DrawBar(screenBuffer + DISPLAY_WIDTH * 7, heartSpriteData, Game::player.hp, Game::player.maxHP);
+	DrawBar(screenBuffer + DISPLAY_WIDTH * 6, manaSpriteData, Game::player.mana, Game::player.maxMana);
+
+	if(Game::player.damageTime > 0)
+		DrawDamageIndicator();
+}
+
 void Renderer::Render()
 {
 	DrawBackground();
@@ -1096,5 +1170,9 @@ void Renderer::Render()
 	RenderQueuedDrawables();
 	
 	DrawWeapon();
+
+	DrawHUD();
+
+	//Map::DrawMinimap();
 }
 

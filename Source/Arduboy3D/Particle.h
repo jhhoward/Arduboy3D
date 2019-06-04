@@ -34,6 +34,7 @@ public:
 	static constexpr int MAX_SYSTEMS = 3;
 	static ParticleSystem systems[MAX_SYSTEMS];
 	
+	static void Init();
 	static void Draw();
 	static void Update();
 	static void CreateExplosion(int16_t x, int16_t y, bool isWhite = false);

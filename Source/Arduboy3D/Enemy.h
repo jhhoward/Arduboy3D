@@ -10,6 +10,8 @@ enum class EnemyType : uint8_t
 	None,
 	Skeleton,
 	Mage,
+	Bat,
+	Spider,
 	NumEnemyTypes
 };
 

@@ -14,14 +14,18 @@ Player Game::player;
 
 void Game::Init()
 {
+	NextLevel();
+}
+
+void Game::NextLevel()
+{
+	ParticleSystemManager::Init();
+	ProjectileManager::Init();
 	EnemyManager::Init();
 	MapGenerator::Generate();
-
-	player.x = CELL_SIZE * 1 + CELL_SIZE / 2;
-	player.y = CELL_SIZE * 1 + CELL_SIZE / 2;
-	
 	EnemyManager::SpawnEnemies();
-	//EnemyManager::Spawn(EnemyType::Skeleton, player.x + CELL_SIZE * 3, player.y);
+
+	player.Init();
 }
 
 void Game::Tick()
@@ -37,4 +41,12 @@ void Game::Tick()
 	ProjectileManager::Update();
 	ParticleSystemManager::Update();
 	EnemyManager::Update();
+
+	if (Map::GetCellSafe(player.x / CELL_SIZE, player.y / CELL_SIZE) == CellType::Exit)
+	{
+		NextLevel();
+	}
+
+	if (player.hp == 0)
+		NextLevel();
 }

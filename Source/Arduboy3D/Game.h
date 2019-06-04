@@ -11,6 +11,7 @@ class Game
 public:
 	static void Init();
 	static void Tick();
+	static void NextLevel();
 
 	static Player player;
 

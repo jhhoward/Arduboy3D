@@ -6,9 +6,9 @@ ParticleSystem ParticleSystemManager::systems[MAX_SYSTEMS];
 
 void ParticleSystem::Init()
 {
-	for (int n = 0; n < PARTICLES_PER_SYSTEM; n++)
+	for (Particle& p : particles)
 	{
-		particles[n].x = -128;
+		p.life = 0;
 	}
 }
 
@@ -16,10 +16,8 @@ void ParticleSystem::Step()
 {
 	isActive = false;
 	
-	for (int n = 0; n < PARTICLES_PER_SYSTEM; n++)
+	for (Particle& p : particles)
 	{
-		Particle& p = particles[n];
-
 		if (p.life > 0)
 		{
 			p.velY += gravity;
@@ -51,10 +49,8 @@ void ParticleSystem::Draw(int x, int halfScale)
 	int8_t horizon = Renderer::GetHorizon(x);
 	uint8_t colour = isWhite ? COLOUR_WHITE : COLOUR_BLACK;
 	
-	for (int n = 0; n < PARTICLES_PER_SYSTEM; n++)
+	for (Particle& p : particles)
 	{
-		Particle& p = particles[n];
-
 		if (p.life > 0)
 		{
 			//int outX = x + ((p.x * scale) >> 8);
@@ -103,10 +99,8 @@ void ParticleSystem::Explode(uint8_t count)
 
 void ParticleSystemManager::Draw()
 {
-	for(uint8_t n = 0; n < MAX_SYSTEMS; n++)
+	for (ParticleSystem& system : systems)
 	{
-		ParticleSystem& system = systems[n];
-		
 		if(system.isActive)
 		{
 			int16_t screenX, screenW;
@@ -126,12 +120,18 @@ void ParticleSystemManager::Draw()
 	}
 }
 
+void ParticleSystemManager::Init()
+{
+	for (ParticleSystem& system : systems)
+	{
+		system.isActive = false;
+	}
+}
+
 void ParticleSystemManager::Update()
 {
-	for(uint8_t n = 0; n < MAX_SYSTEMS; n++)
+	for (ParticleSystem& system : systems)
 	{
-		ParticleSystem& system = systems[n];
-		
 		if(system.isActive)
 		{
 			system.Step();
@@ -141,10 +141,8 @@ void ParticleSystemManager::Update()
 
 void ParticleSystemManager::CreateExplosion(int16_t worldX, int16_t worldY, bool isWhite)
 {
-	for(uint8_t n = 0; n < MAX_SYSTEMS; n++)
+	for(ParticleSystem& system : systems)
 	{
-		ParticleSystem& system = systems[n];
-		
 		if(!system.isActive)
 		{
 			system.worldX = worldX;

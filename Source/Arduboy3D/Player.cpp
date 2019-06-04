@@ -5,20 +5,37 @@
 #include "Platform.h"
 #include "Draw.h"
 #include "Enemy.h"
+#include "Map.h"
 
 #define USE_ROTATE_BOB 0
 #define STRAFE_TILT 14
 #define ROTATE_TILT 3
 
+void Player::Init()
+{
+	x = CELL_SIZE * 1 + CELL_SIZE / 2;
+	y = CELL_SIZE * 1 + CELL_SIZE / 2;
+	angle = FIXED_ANGLE_45;
+	hp = maxHP;
+	mana = maxMana;
+	damageTime = 0;
+	shakeTime = 0;
+	reloadTime = 0;
+}
+
 void Player::Fire()
 {
-	reloadTime = 8;
-	shakeTime = 6;
+	if (mana >= manaFireCost)
+	{
+		reloadTime = 8;
+		shakeTime = 6;
 
-	int16_t projectileX = x + FixedCos(angle + FIXED_ANGLE_90 / 2) / 4;
-	int16_t projectileY = y + FixedSin(angle + FIXED_ANGLE_90 / 2) / 4;
+		int16_t projectileX = x + FixedCos(angle + FIXED_ANGLE_90 / 2) / 4;
+		int16_t projectileY = y + FixedSin(angle + FIXED_ANGLE_90 / 2) / 4;
 
-	ProjectileManager::FireProjectile(this, projectileX, projectileY, angle);
+		ProjectileManager::FireProjectile(this, projectileX, projectileY, angle);
+		mana -= manaFireCost;
+	}
 }
 
 void Player::Tick()
@@ -161,6 +178,25 @@ void Player::Tick()
 
 	velocityX = (velocityX * 7) / 8;
 	velocityY = (velocityY * 7) / 8;
+
+	if (mana < maxMana && reloadTime == 0)
+	{
+		mana += manaRechargeRate;
+	}
+
+	if (damageTime > 0)
+		damageTime--;
+
+	uint8_t cellX = x / CELL_SIZE;
+	uint8_t cellY = y / CELL_SIZE;
+
+	switch (Map::GetCellSafe(cellX, cellY))
+	{
+	case CellType::Potion:
+		Map::SetCell(cellX, cellY, CellType::Empty);
+		hp = maxHP;
+		break;
+	}
 }
 
 bool Player::CheckCollisions()
@@ -197,4 +233,29 @@ void Player::Move(int16_t deltaX, int16_t deltaY)
 			}
 		}
 	}
+}
+
+void Player::Damage()
+{
+	uint8_t damageAmount = 10;
+
+	if(shakeTime < 6)
+		shakeTime = 6;
+
+	damageTime = 8;
+	
+	if (hp <= damageAmount)
+	{
+		Die();
+	}
+	else
+	{
+		hp -= damageAmount;
+	}
+}
+
+void Player::Die()
+{
+	// TODO
+	hp = 0;
 }

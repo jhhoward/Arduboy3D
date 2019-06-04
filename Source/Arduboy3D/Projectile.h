@@ -22,6 +22,7 @@ public:
 	static Projectile projectiles[MAX_PROJECTILES];
 
 	static Projectile* FireProjectile(Entity* owner, int16_t x, int16_t y, uint8_t angle);
+	static void Init();
 	static void Draw();
 	static void Update();
 };

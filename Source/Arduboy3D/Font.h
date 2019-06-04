@@ -9,3 +9,16 @@ void DrawString(const char* str, uint8_t x, uint8_t y);
 void DrawInt(int16_t val, uint8_t x, uint8_t y);
 uint8_t DrawCurrency(int32_t val, uint8_t x, uint8_t y);
 
+class Font
+{
+public:
+	static constexpr int glyphWidth = 4;
+	static constexpr int glyphHeight = 8;
+	static constexpr int firstGlyphIndex = 32;
+
+	static void PrintString(const char* str, uint8_t line, uint8_t x);
+	static void PrintInt(int16_t value, uint8_t line, uint8_t x);
+
+private:
+	static void DrawChar(uint8_t* screenPtr, char c);
+};
