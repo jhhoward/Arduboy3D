@@ -6,6 +6,7 @@
 #include "Draw.h"
 #include "Enemy.h"
 #include "Map.h"
+#include "Sounds.h"
 
 #define USE_ROTATE_BOB 0
 #define STRAFE_TILT 14
@@ -35,6 +36,7 @@ void Player::Fire()
 
 		ProjectileManager::FireProjectile(this, projectileX, projectileY, angle);
 		mana -= manaFireCost;
+		Platform::PlaySound(Sounds::Attack);
 	}
 }
 
@@ -195,6 +197,8 @@ void Player::Tick()
 	case CellType::Potion:
 		Map::SetCell(cellX, cellY, CellType::Empty);
 		hp = maxHP;
+		Platform::PlaySound(Sounds::Pickup);
+		Game::ShowMessage(PSTR("Picked up a health potion"));
 		break;
 	}
 }
@@ -235,10 +239,8 @@ void Player::Move(int16_t deltaX, int16_t deltaY)
 	}
 }
 
-void Player::Damage()
+void Player::Damage(uint8_t damageAmount)
 {
-	uint8_t damageAmount = 10;
-
 	if(shakeTime < 6)
 		shakeTime = 6;
 
@@ -246,10 +248,12 @@ void Player::Damage()
 	
 	if (hp <= damageAmount)
 	{
+		Platform::PlaySound(Sounds::PlayerDeath);
 		Die();
 	}
 	else
 	{
+		Platform::PlaySound(Sounds::Ouch);
 		hp -= damageAmount;
 	}
 }

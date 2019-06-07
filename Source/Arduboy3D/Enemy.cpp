@@ -6,6 +6,8 @@
 #include "Game.h"
 #include "Projectile.h"
 #include "Generated/SpriteTypes.h"
+#include "Sounds.h"
+#include "Platform.h"
 
 Enemy EnemyManager::enemies[maxEnemies];
 
@@ -15,7 +17,10 @@ const EnemyArchetype Enemy::archetypes[(int)EnemyType::NumEnemyTypes - 1] PROGME
 		// Skeleton
 		skeletonSpriteData,
 		50,					// hp
-		6,					// speed
+		4,					// speed
+		20,					// attackStrength
+		3,					// attackDuration
+		3,					// stunDuration
 		false,				// isRanged
 		96,					// sprite scale
 		AnchorType::Floor	// sprite anchor
@@ -23,8 +28,11 @@ const EnemyArchetype Enemy::archetypes[(int)EnemyType::NumEnemyTypes - 1] PROGME
 	{
 		// Mage
 		mageSpriteData,
-		50,					// hp
+		30,					// hp
 		5,					// speed
+		20,					// attackStrength
+		3,					// attackDuration
+		2,					// stunDuration
 		true,				// isRanged
 		96,					// sprite scale
 		AnchorType::Floor	// sprite anchor
@@ -34,6 +42,9 @@ const EnemyArchetype Enemy::archetypes[(int)EnemyType::NumEnemyTypes - 1] PROGME
 		batSpriteData,
 		20,					// hp
 		7,					// speed
+		10,					// attackStrength
+		2,					// attackDuration
+		0,					// stunDuration
 		false,				// isRanged
 		80,					// sprite scale
 		AnchorType::Center	// sprite anchor
@@ -41,8 +52,11 @@ const EnemyArchetype Enemy::archetypes[(int)EnemyType::NumEnemyTypes - 1] PROGME
 	{
 		// Spider
 		spiderSpriteData,
-		20,					// hp
+		10,					// hp
 		7,					// speed
+		5,					// attackStrength
+		1,					// attackDuration
+		0,					// stunDuration
 		false,				// isRanged
 		50,					// sprite scale
 		AnchorType::Floor	// sprite anchor
@@ -59,6 +73,22 @@ void Enemy::Init(EnemyType initType, int16_t initX, int16_t initY)
 	targetCellX = x / CELL_SIZE;
 	targetCellY = y / CELL_SIZE;
 	hp = GetArchetype()->GetHP();
+}
+
+void Enemy::Damage(uint8_t amount)
+{
+	if (amount >= hp)
+	{
+		type = EnemyType::None;
+		Platform::PlaySound(Sounds::Kill);
+	}
+	else
+	{
+		hp -= amount;
+		Platform::PlaySound(Sounds::Hit);
+		state = EnemyState::Stunned;
+		frameDelay = GetArchetype()->GetStunDuration();
+	}
 }
 
 const EnemyArchetype* Enemy::GetArchetype() const
@@ -155,6 +185,24 @@ void Enemy::PickNewTargetCell()
 	TryPickCells(deltaX, deltaY);
 }
 
+void Enemy::StunMove()
+{
+	//int16_t targetX = Game::player.x;
+	//int16_t targetY = Game::player.y;
+	//
+	//int16_t maxDelta = 3;
+	//
+	//int16_t deltaX = Clamp(targetX - x, -maxDelta, maxDelta);
+	//int16_t deltaY = Clamp(targetY - y, -maxDelta, maxDelta);
+	//
+	//x -= deltaX;
+	//y -= deltaY;
+	int16_t deltaX = (Random() % 16) - 8;
+	int16_t deltaY = (Random() % 16) - 8;
+	x += deltaX;
+	y += deltaY;
+}
+
 bool Enemy::TryMove()
 {
 	if(Map::IsSolid(targetCellX, targetCellY))
@@ -178,9 +226,9 @@ bool Enemy::TryMove()
 	{
 		if (!GetArchetype()->GetIsRanged())
 		{
-			Game::player.Damage();
+			Game::player.Damage(GetArchetype()->GetAttackStrength());
 			state = EnemyState::Attacking;
-			frameDelay = 3;
+			frameDelay = GetArchetype()->GetAttackDuration();
 		}
 
 		x -= deltaX;
@@ -263,6 +311,11 @@ bool Enemy::ShouldFireProjectile() const
 
 void Enemy::Tick()
 {
+	if (state == EnemyState::Stunned)
+	{
+		StunMove();
+	}
+
 	if (frameDelay > 0)
 	{
 		if ((Renderer::globalAnimationFrame & 0xf) == 0)
@@ -277,6 +330,7 @@ void Enemy::Tick()
 	case EnemyState::Idle:
 		if (Map::IsClearLine(x, y, Game::player.x, Game::player.y))
 		{
+			Platform::PlaySound(Sounds::SpotPlayer);
 			state = EnemyState::Moving;
 		}
 		break;
@@ -287,12 +341,16 @@ void Enemy::Tick()
 		{
 			if (TryFireProjectile())
 			{
+				Platform::PlaySound(Sounds::Shoot);
 				state = EnemyState::Attacking;
-				frameDelay = 3;
+				frameDelay = GetArchetype()->GetAttackDuration();
 			}
 		}
 		break;
 	case EnemyState::Attacking:
+		state = EnemyState::Moving;
+		break;
+	case EnemyState::Stunned:
 		state = EnemyState::Moving;
 		break;
 	}

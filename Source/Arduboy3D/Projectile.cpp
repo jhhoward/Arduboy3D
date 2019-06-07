@@ -5,6 +5,8 @@
 #include "Particle.h"
 #include "Enemy.h"
 #include "Generated/SpriteTypes.h"
+#include "Platform.h"
+#include "Sounds.h"
 
 Projectile ProjectileManager::projectiles[ProjectileManager::MAX_PROJECTILES];
 
@@ -83,6 +85,11 @@ void ProjectileManager::Update()
 						Map::SetCell(cellX, cellY, CellType::Potion);
 						break;
 					}
+					Platform::PlaySound(Sounds::Kill);
+				}
+				else
+				{
+					Platform::PlaySound(Sounds::Hit);
 				}
 
 				hitAnything = true;
@@ -94,7 +101,7 @@ void ProjectileManager::Update()
 					Enemy* overlappingEnemy = EnemyManager::GetOverlappingEnemy(p.x, p.y);
 					if (overlappingEnemy)
 					{
-						overlappingEnemy->Damage();
+						overlappingEnemy->Damage(Player::attackStrength);
 						ParticleSystemManager::CreateExplosion(p.x, p.y, true);
 
 						hitAnything = true;
@@ -102,7 +109,11 @@ void ProjectileManager::Update()
 				}
 				else if(Game::player.IsOverlappingPoint(p.x, p.y))
 				{
-					Game::player.Damage();
+					const EnemyArchetype* enemyArchetype = ((Enemy*)owner)->GetArchetype();
+					if (enemyArchetype)
+					{
+						Game::player.Damage(enemyArchetype->GetAttackStrength());
+					}
 					hitAnything = true;
 				}
 			}
@@ -110,7 +121,6 @@ void ProjectileManager::Update()
 			if (hitAnything)
 			{
 				ParticleSystemManager::CreateExplosion(p.x - deltaX, p.y - deltaY);
-
 				p.life = 0;
 			}
 		}

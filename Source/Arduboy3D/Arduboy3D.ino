@@ -1,10 +1,12 @@
 #include <Arduboy2.h>
+#include <ArduboyTones.h>
 #include "Game.h"
 #include "Draw.h"
 #include "FixedMath.h"
 #include "Platform.h"
 
 Arduboy2Base arduboy;
+ArduboyTones sound(arduboy.audio.enabled);
 Sprites sprites;
 
 uint8_t Platform::GetInput()
@@ -37,6 +39,11 @@ uint8_t Platform::GetInput()
   }
 
   return result;
+}
+
+void Platform::PlaySound(const uint16_t* audioPattern)
+{
+	sound.tones(audioPattern);
 }
 
 void Platform::SetLED(uint8_t r, uint8_t g, uint8_t b)
@@ -132,6 +139,25 @@ void Platform::FillScreen(uint8_t colour)
 
 unsigned long lastTimingSample;
 
+bool Platform::IsAudioEnabled()
+{
+	return arduboy.audio.enabled();
+}
+
+void Platform::SetAudioEnabled(bool isEnabled)
+{
+	if(isEnabled)
+		arduboy.audio.on();
+	else
+		arduboy.audio.off();
+}
+
+void Platform::ExpectLoadDelay()
+{
+	// Resets the timer so that we don't tick multiple times after a level load
+	lastTimingSample = millis();
+}
+
 void setup()
 {
   arduboy.boot();
@@ -140,6 +166,8 @@ void setup()
   arduboy.bootLogo();
   arduboy.setFrameRate(TARGET_FRAMERATE);
 
+  arduboy.audio.off();
+  
   //Serial.begin(9600);
 
   SeedRandom((uint16_t) arduboy.generateRandomSeed());
@@ -168,7 +196,7 @@ void loop()
 		tickAccum -= frameDuration;
 	}
 	
-	Renderer::Render();
+	Game::Draw();
     
     //Serial.write(arduboy.getBuffer(), 128 * 64 / 8);
 

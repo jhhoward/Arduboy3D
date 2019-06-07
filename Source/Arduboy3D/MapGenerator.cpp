@@ -1,6 +1,7 @@
 #include "MapGenerator.h"
 #include "Map.h"
 #include "FixedMath.h"
+#include "Enemy.h"
 
 uint8_t MapGenerator::GetDistanceToCellType(uint8_t x, uint8_t y, CellType cellType)
 {
@@ -465,7 +466,7 @@ void MapGenerator::Generate()
 	// Add monsters
 	{
 		uint8_t attempts = 255;
-		uint8_t monstersToSpawn = 16;
+		uint8_t monstersToSpawn = EnemyManager::maxEnemies;
 		CellType monsterType = CellType::Skeleton;
 		uint8_t minSpacing = 3;
 

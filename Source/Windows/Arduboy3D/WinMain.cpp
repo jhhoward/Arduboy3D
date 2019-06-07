@@ -13,6 +13,9 @@
 #include "lodepng.h"
 
 #define ZOOM_SCALE 1
+#define TONES_END 0x8000
+
+#include "Data_Audio.h"
 
 SDL_Window* AppWindow;
 SDL_Renderer* AppRenderer;
@@ -22,6 +25,7 @@ SDL_Texture* ScreenTexture;
 uint8_t InputMask = 0;
 uint8_t sBuffer[DISPLAY_WIDTH * DISPLAY_HEIGHT / 8];
 
+bool isAudioEnabled = true;
 bool IsRecording = false;
 int CurrentRecordingFrame = 0;
 
@@ -40,6 +44,86 @@ std::vector<KeyMap> KeyMappings =
 	{ SDL_SCANCODE_Z, INPUT_A },
 	{ SDL_SCANCODE_X, INPUT_B },
 };
+
+constexpr int audioSampleRate = 48000;
+
+const uint16_t* currentAudioPattern = nullptr;
+int currentPatternBufferPos = 0;
+
+void Play(const uint16_t* pattern)
+{
+	currentAudioPattern = pattern;
+	currentPatternBufferPos = 0;
+}
+
+void FillAudioBuffer(void *udata, uint8_t *stream, int len)
+{
+	int feedPos = 0;
+	
+	static int waveSamplesLeft = 0;
+	static int noteSamplesLeft = 0;
+	static int frequency = 0;
+	static bool high = false;
+
+	while(feedPos < len)
+	{
+		if(!isAudioEnabled)
+		{
+			while(feedPos < len)
+			{
+				stream[feedPos++] = 0;
+			}
+			return;
+		}
+		
+		if(currentAudioPattern != nullptr)
+		{
+			if(noteSamplesLeft == 0)
+			{
+				frequency = currentAudioPattern[currentPatternBufferPos];
+				uint16_t duration = currentAudioPattern[currentPatternBufferPos + 1];
+				
+				noteSamplesLeft = (audioSampleRate * duration) / 1000;
+				
+				waveSamplesLeft = frequency > 0 ? audioSampleRate / frequency : noteSamplesLeft;
+				
+				currentPatternBufferPos += 2;
+				if(currentAudioPattern[currentPatternBufferPos] == TONES_END)
+				{
+					currentAudioPattern = nullptr;
+				}
+			}
+		}
+		
+		if(frequency == 0)
+		{
+			while(feedPos < len && (!currentAudioPattern || noteSamplesLeft > 0))
+			{
+				stream[feedPos++] = 0;
+				
+				if(noteSamplesLeft > 0)
+					noteSamplesLeft--;
+			}
+		}
+		else
+		{
+			while(feedPos < len && waveSamplesLeft > 0 && noteSamplesLeft > 0)
+			{
+				int volume = 32;
+				stream[feedPos++] = high ? 128 + volume : 128 - volume;
+				waveSamplesLeft--;
+				noteSamplesLeft--;
+			}
+			
+			if(waveSamplesLeft == 0)
+			{
+				high = !high;
+				waveSamplesLeft = audioSampleRate / frequency;
+			}
+		}
+		
+	}
+}
 
 void Platform::SetLED(uint8_t r, uint8_t g, uint8_t b)
 {
@@ -301,6 +385,21 @@ void Platform::DrawBackground()
 	}
 }
 
+void Platform::PlaySound(const uint16_t* audioPattern)
+{
+	Play(audioPattern);
+}
+
+bool Platform::IsAudioEnabled()
+{
+	return isAudioEnabled;
+}
+
+void Platform::SetAudioEnabled(bool isEnabled)
+{
+	isAudioEnabled = isEnabled;
+}
+
 uint8_t Platform::GetInput()
 {
 	uint8_t inputMask = 0;
@@ -316,6 +415,11 @@ uint8_t Platform::GetInput()
 	}
 
 	return inputMask;
+}
+
+void Platform::ExpectLoadDelay()
+{
+
 }
 
 /*#include "Font.h"
@@ -391,6 +495,18 @@ int main(int argc, char* argv[])
 
 	SDL_SetWindowPosition(AppWindow, 1900 - DISPLAY_WIDTH * 2, 1020 - DISPLAY_HEIGHT);
 
+	SDL_AudioSpec wanted;
+	wanted.freq = audioSampleRate;
+	wanted.format = AUDIO_U8;
+	wanted.channels = 1;
+	wanted.samples = 4096;
+	wanted.callback = FillAudioBuffer;
+
+	if (SDL_OpenAudio(&wanted, NULL) <0) {
+		printf("Error: %s\n", SDL_GetError());
+	}
+	SDL_PauseAudio(0);
+	
 	//DumpFont();
 
 	SeedRandom((uint16_t)time(nullptr));
@@ -398,6 +514,7 @@ int main(int argc, char* argv[])
 	
 	bool running = true;
 	int playRate = 1;
+	static int testAudio = 0;
 
 	while (running)
 	{
@@ -414,6 +531,21 @@ int main(int argc, char* argv[])
 				{
 				case SDLK_ESCAPE:
 					running = false;
+					break;
+				case SDLK_i:
+					testAudio--;
+					if(testAudio < 0)
+						testAudio = NUM_AUDIO_PATTERNS - 1;
+					Play(Data_AudioPatterns[testAudio]);
+					break;
+				case SDLK_o:
+					testAudio++;
+					if(testAudio >= NUM_AUDIO_PATTERNS)
+						testAudio = 0;
+					Play(Data_AudioPatterns[testAudio]);
+					break;
+				case SDLK_p:
+					Play(Data_AudioPatterns[testAudio]);
 					break;
 				case SDLK_TAB:
 					playRate = 10;
@@ -444,7 +576,7 @@ int main(int argc, char* argv[])
 			memset(ScreenSurface->pixels, 0, ScreenSurface->format->BytesPerPixel * ScreenSurface->w * ScreenSurface->h);
 			
 			Game::Tick();
-			Renderer::Render();
+			Game::Draw();
 			//Map::DebugDraw();
 			
 			ResolveScreen(ScreenSurface);

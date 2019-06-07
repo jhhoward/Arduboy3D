@@ -18,6 +18,7 @@ public:
 	static constexpr uint8_t maxMana = 100;
 	static constexpr uint8_t manaFireCost = 20;
 	static constexpr uint8_t manaRechargeRate = 1;
+	static constexpr uint8_t attackStrength = 10;
 
 	uint8_t hp;
 	uint8_t mana;
@@ -27,6 +28,6 @@ public:
 	void Fire();
 	void Move(int16_t deltaX, int16_t deltaY);
 	bool CheckCollisions();
-	void Damage();
+	void Damage(uint8_t amount);
 	void Die();
 };

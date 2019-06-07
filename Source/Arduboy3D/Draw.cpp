@@ -447,38 +447,179 @@ void Renderer::DrawWall(int16_t x1, int16_t y1, int16_t x2, int16_t y2, bool edg
 #endif
 }
 
+void swap(int16_t& a, int16_t& b)
+{
+	int16_t temp = a;
+	a = b;
+	b = temp;
+}
+
+void Renderer::DrawFloorLineInner(int16_t x0, int16_t y0, int16_t x1, int16_t y1)
+{
+	uint8_t color = COLOUR_BLACK;
+	
+	bool steep = ABS(y1 - y0) > ABS(x1 - x0);
+	if (steep) 
+	{
+		swap(x0, y0);
+		swap(x1, y1);
+	}
+
+	if (x0 > x1) 
+	{
+		swap(x0, x1);
+		swap(y0, y1);
+	}
+
+	int16_t dx, dy;
+	dx = x1 - x0;
+	dy = ABS(y1 - y0);
+
+	int16_t err = dx / 2;
+	int8_t ystep;
+
+	if (y0 < y1)
+	{
+		ystep = 1;
+	}
+	else
+	{
+		ystep = -1;
+	}
+
+	for (; x0 <= x1; x0++)
+	{
+		if(steep)
+		{
+			if(y0 >= 0 && y0 < DISPLAY_WIDTH && x0 >= 0 && x0 < DISPLAY_HEIGHT && x0 > GetHorizon(y0) + wBuffer[y0] && x0 > GetHorizon(y0) + 8)
+			{
+				Platform::PutPixel((uint8_t)y0, (uint8_t)x0 + horizonBuffer[y0] - HORIZON, color);
+			}
+		}
+		else
+		{
+			if(x0 >= 0 && x0 < DISPLAY_WIDTH && y0 >= 0 && y0 < DISPLAY_HEIGHT && y0 > GetHorizon(x0) + wBuffer[x0] && y0 > GetHorizon(x0) + 8)
+			{
+				Platform::PutPixel((uint8_t)x0, (uint8_t)y0 + horizonBuffer[x0] - HORIZON, color);
+			}
+		}
+
+		err -= dy;
+		if (err < 0)
+		{
+			y0 += ystep;
+			err += dx;
+		}
+	}
+}
+
+void Renderer::DrawFloorLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2)
+{
+	int16_t viewX1, viewZ1, viewX2, viewZ2;
+
+	TransformToViewSpace(x1, y1, viewX1, viewZ1);
+	TransformToViewSpace(x2, y2, viewX2, viewZ2);
+	
+	//if(viewX1 > viewX2)
+	//{
+	//	swap(viewX1, viewX2);
+	//	swap(viewZ1, viewZ2);
+	//}
+
+	// Frustum cull
+//	if (viewX2 < 0 && -2 * viewZ2 > viewX2)
+//		return;
+//	if (viewX1 > 0 && 2 * viewZ1 < viewX1)
+//		return;
+
+	// clip to the front pane
+	if ((viewZ1 < CLIP_PLANE) && (viewZ2 < CLIP_PLANE))
+		return;
+
+	if (viewZ1 < CLIP_PLANE)
+	{
+		viewX1 += (CLIP_PLANE - viewZ1) * (viewX2 - viewX1) / (viewZ2 - viewZ1);
+		viewZ1 = CLIP_PLANE;
+	}
+	else if (viewZ2 < CLIP_PLANE)
+	{
+		viewX2 += (CLIP_PLANE - viewZ2) * (viewX1 - viewX2) / (viewZ1 - viewZ2);
+		viewZ2 = CLIP_PLANE;
+	}
+
+	// apply perspective projection
+	int16_t vx1 = (int16_t)((int32_t)viewX1 * NEAR_PLANE * CAMERA_SCALE / viewZ1);
+	int16_t vx2 = (int16_t)((int32_t)viewX2 * NEAR_PLANE * CAMERA_SCALE / viewZ2);
+
+	// transform the end points into screen space
+	int16_t sx1 = (int16_t)((DISPLAY_WIDTH / 2) + vx1);
+	int16_t sx2 = (int16_t)((DISPLAY_WIDTH / 2) + vx2) - 1;
+
+	//if (sx2 <= 0 || sx1 >= DISPLAY_WIDTH)
+	//	return;
+
+	int16_t w1 = (int16_t)((CELL_SIZE / 2 * NEAR_PLANE * CAMERA_SCALE) / viewZ1);
+	int16_t w2 = (int16_t)((CELL_SIZE / 2 * NEAR_PLANE * CAMERA_SCALE) / viewZ2);
+
+	DrawFloorLineInner(sx1, HORIZON + w1, sx2, HORIZON + w2);
+}
+
+void Renderer::DrawFloorLines()
+{
+	constexpr int size = 10;
+	int16_t baseX = (Game::player.x - CELL_SIZE * size / 2) & 0xff00;
+	int16_t baseY = (Game::player.y - CELL_SIZE * size / 2) & 0xff00;
+	
+	for(int n = 0; n < 10; n++)
+	{
+		DrawFloorLine(baseX, baseY + n * CELL_SIZE, baseX + CELL_SIZE * 10 - n * CELL_SIZE, baseY + CELL_SIZE * 10);
+		DrawFloorLine(baseX, baseY + n * CELL_SIZE, baseX + n * CELL_SIZE, baseY);
+	}
+	
+	for(int n = 1; n < 10; n++)
+	{
+		DrawFloorLine(baseX + n * CELL_SIZE, baseY, baseX + CELL_SIZE * 10, baseY + CELL_SIZE * 10 - n * CELL_SIZE);
+		DrawFloorLine(baseX + n * CELL_SIZE, baseY + 10 * CELL_SIZE, baseX + 10 * CELL_SIZE, baseY + n * CELL_SIZE);
+	}
+}
+
 void Renderer::DrawCell(uint8_t x, uint8_t y)
 {
 	CellType cellType = Map::GetCellSafe(x, y);
-	
-	switch(cellType)
+
+	if (isFrustrumClipped(x, y))
+	{
+		return;
+	}
+
+	switch (cellType)
 	{
 	case CellType::Skeleton:
 		DrawObject(skeletonSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2);
 		return;
 	case CellType::Torch:
+	{
+		const uint16_t* torchSpriteData = globalAnimationFrame & 4 ? torchSpriteData1 : torchSpriteData2;
+		constexpr uint8_t torchScale = 75;
+
+		if (Map::IsSolid(x - 1, y))
 		{
-			const uint16_t* torchSpriteData = globalAnimationFrame & 4 ? torchSpriteData1 : torchSpriteData2;
-			constexpr uint8_t torchScale = 75;
-			
-			if(Map::IsSolid(x - 1, y))
-			{
-				DrawObject(torchSpriteData, x * CELL_SIZE + CELL_SIZE / 7, y * CELL_SIZE + CELL_SIZE / 2, torchScale, AnchorType::Center);
-			}
-			else if(Map::IsSolid(x + 1, y))
-			{
-				DrawObject(torchSpriteData, x * CELL_SIZE + 6 * CELL_SIZE / 7, y * CELL_SIZE + CELL_SIZE / 2, torchScale, AnchorType::Center);
-			}
-			else if(Map::IsSolid(x, y - 1))
-			{
-				DrawObject(torchSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 7, torchScale, AnchorType::Center);
-			}
-			else if(Map::IsSolid(x, y + 1))
-			{
-				DrawObject(torchSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + 6 * CELL_SIZE / 7, torchScale, AnchorType::Center);
-			}
+			DrawObject(torchSpriteData, x * CELL_SIZE + CELL_SIZE / 7, y * CELL_SIZE + CELL_SIZE / 2, torchScale, AnchorType::Center);
 		}
-		return;
+		else if (Map::IsSolid(x + 1, y))
+		{
+			DrawObject(torchSpriteData, x * CELL_SIZE + 6 * CELL_SIZE / 7, y * CELL_SIZE + CELL_SIZE / 2, torchScale, AnchorType::Center);
+		}
+		else if (Map::IsSolid(x, y - 1))
+		{
+			DrawObject(torchSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 7, torchScale, AnchorType::Center);
+		}
+		else if (Map::IsSolid(x, y + 1))
+		{
+			DrawObject(torchSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + 6 * CELL_SIZE / 7, torchScale, AnchorType::Center);
+		}
+	}
+	return;
 	case CellType::Entrance:
 		DrawObject(entranceSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 96, AnchorType::Ceiling);
 		return;
@@ -497,11 +638,6 @@ void Renderer::DrawCell(uint8_t x, uint8_t y)
 	}
 
 	if(numBufferSlicesFilled >= DISPLAY_WIDTH)
-	{
-		return;
-	}
-
-	if (isFrustrumClipped(x, y))
 	{
 		return;
 	}
@@ -640,7 +776,7 @@ template<int scaleMultiplier>
 inline void DrawScaledOutline(const uint16_t* data, int8_t x, int8_t y, uint8_t halfSize, uint8_t inverseCameraDistance)
 {
 	uint8_t size = 2 * halfSize;
-	const uint8_t* lut = scaleLUT + ((halfSize / scaleMultiplier) * (halfSize / scaleMultiplier));
+	const uint8_t* lut = scaleLUT + (((halfSize - 1) / scaleMultiplier) * ((halfSize - 1) / scaleMultiplier));
 
 	uint8_t i0 = x < 0 ? -x : 0;
 	uint8_t i1 = x + size > DISPLAY_WIDTH ? DISPLAY_WIDTH - x : size;
@@ -662,26 +798,46 @@ inline void DrawScaledOutline(const uint16_t* data, int8_t x, int8_t y, uint8_t 
 
 		if (isVisible)
 		{
-			const uint8_t u = pgm_read_byte(&lut[i / scaleMultiplier]);
 			uint16_t leftRightOutlineColumn = 0;
-			
-			if(wasVisible)
+
+			if(i >= i1 - 2)
 			{
-				leftTransparencyAndColourColumn = middleColourColumn & middleTransparencyColumn;		
-				middleColourColumn = rightColourColumn;
-				middleTransparencyColumn = rightTransparencyColumn;
-				rightTransparencyColumn = pgm_read_word(&data[u * 2]);
-				rightColourColumn = pgm_read_word(&data[u * 2 + 1]);
-				leftRightOutlineColumn = leftTransparencyAndColourColumn | (rightColourColumn | rightTransparencyColumn);
+				if (wasVisible)
+				{
+					leftTransparencyAndColourColumn = middleColourColumn & middleTransparencyColumn;
+					middleColourColumn = rightColourColumn;
+					middleTransparencyColumn = rightTransparencyColumn;
+					rightTransparencyColumn = 0;
+					rightColourColumn = 0;
+					leftRightOutlineColumn = leftTransparencyAndColourColumn;
+				}
+				else
+				{
+					break;
+				}
 			}
 			else
 			{
-				leftTransparencyAndColourColumn = 0;		
-				rightTransparencyColumn = pgm_read_word(&data[u * 2]);
-				rightColourColumn = pgm_read_word(&data[u * 2 + 1]);
-				middleColourColumn = rightColourColumn;
-				middleTransparencyColumn = rightTransparencyColumn;
-				leftRightOutlineColumn = (rightColourColumn | rightTransparencyColumn);
+				const uint8_t u = pgm_read_byte(&lut[i / scaleMultiplier]);
+
+				if (wasVisible)
+				{
+					leftTransparencyAndColourColumn = middleColourColumn & middleTransparencyColumn;
+					middleColourColumn = rightColourColumn;
+					middleTransparencyColumn = rightTransparencyColumn;
+					rightTransparencyColumn = pgm_read_word(&data[u * 2]);
+					rightColourColumn = pgm_read_word(&data[u * 2 + 1]);
+					leftRightOutlineColumn = leftTransparencyAndColourColumn | (rightColourColumn & rightTransparencyColumn);
+				}
+				else
+				{
+					leftTransparencyAndColourColumn = 0;
+					rightTransparencyColumn = pgm_read_word(&data[u * 2]);
+					rightColourColumn = pgm_read_word(&data[u * 2 + 1]);
+					middleColourColumn = rightColourColumn;
+					middleTransparencyColumn = rightTransparencyColumn;
+					leftRightOutlineColumn = (rightColourColumn & rightTransparencyColumn);
+				}
 			}
 			
 			int8_t outY = y >= 0 ? y : 0;
@@ -695,55 +851,64 @@ inline void DrawScaledOutline(const uint16_t* data, int8_t x, int8_t y, uint8_t 
 			bool downIsOpaque = false;
 			bool middleIsWhite = false;
 			bool downIsWhite = false;
+			bool leftOrRightIsOutline = false;
+			bool downLeftOrRightIsOutline = false;
 			
-			for (uint8_t j = j0; j < j1; j += scaleMultiplier)
+			for (uint8_t j = j0; j < j1; j++)
 			{
-				uint8_t v = pgm_read_byte(&lut[j / scaleMultiplier]);
-				uint16_t mask = pgm_read_word(&scaleDrawReadMasks[v]);
+				upIsOpaqueAndWhite = middleIsOpaque && middleIsWhite;
+				middleIsOpaque = downIsOpaque;
+				middleIsWhite = downIsWhite;
+				leftOrRightIsOutline = downLeftOrRightIsOutline;
 
-				bool leftOrRightIsOutline = (leftRightOutlineColumn & mask) != 0;
-
-				for(uint8_t k = 0; k < scaleMultiplier; k++)
+				if(j >= j1 - 2)
 				{
-					upIsOpaqueAndWhite = middleIsOpaque && middleIsWhite;
-					middleIsOpaque = downIsOpaque;
-					middleIsWhite = downIsWhite;
-					downIsOpaque = (middleTransparencyColumn & mask) != 0; 
+					downIsOpaque = false;
+					downIsWhite = false;
+					downLeftOrRightIsOutline = false;
+				}
+				else
+				{
+					uint8_t v = pgm_read_byte(&lut[j / scaleMultiplier]);
+					uint16_t mask = pgm_read_word(&scaleDrawReadMasks[v]);
+					downLeftOrRightIsOutline = (leftRightOutlineColumn & mask) != 0;
+					downIsOpaque = (middleTransparencyColumn & mask) != 0;
 					downIsWhite = (middleColourColumn & mask) != 0;
+				}
 					
-					if (middleIsOpaque)
+				if (middleIsOpaque && j < j1)
+				{
+					if(middleIsWhite)
 					{
-						if(middleIsWhite)
-						{
-							localBuffer |= writeMask;
-						}
-						else
-						{
-							localBuffer &= ~writeMask;
-						}
+						localBuffer |= writeMask;
 					}
-					else if(leftOrRightIsOutline || (upIsOpaqueAndWhite) || (downIsOpaque && downIsWhite))
+					else
 					{
 						localBuffer &= ~writeMask;
 					}
-					
-					outY++;
-					bufferPos++;
-					writeMask <<= 1;
-					
-					if(bufferPos == 8)
-					{
-						bufferPos = 0;
-						writeMask = 1;
-						
-						*screenBuffer = localBuffer;
-						if(outY < DISPLAY_HEIGHT)
-						{
-							screenBuffer += 128;
-						}
-						localBuffer = *screenBuffer;
-					}
 				}
+				else if(leftOrRightIsOutline || (upIsOpaqueAndWhite) || (downIsOpaque && downIsWhite))
+				{
+					localBuffer &= ~writeMask;
+				}
+					
+				outY++;
+				bufferPos++;
+				writeMask <<= 1;
+					
+				if(bufferPos == 8)
+				{
+					bufferPos = 0;
+					writeMask = 1;
+						
+					*screenBuffer = localBuffer;
+					if(outY < DISPLAY_HEIGHT)
+					{
+						screenBuffer += 128;
+					}
+					localBuffer = *screenBuffer;
+				}
+				
 			}
 
 			*screenBuffer = localBuffer;
@@ -833,17 +998,15 @@ inline void DrawScaledNoOutline(const uint16_t* data, int8_t x, int8_t y, uint8_
 
 void Renderer::DrawScaled(const uint16_t* data, int8_t x, int8_t y, uint8_t halfSize, uint8_t inverseCameraDistance)
 {
-	uint8_t size = 2 * halfSize;
-
-	if (size > MAX_SPRITE_SIZE * 4)
+	if (halfSize > MAX_SPRITE_SIZE * 2)
 	{
 		return;
 	}
-	else if (size > MAX_SPRITE_SIZE * 2)
+	else if (halfSize > MAX_SPRITE_SIZE)
 	{
 		DrawScaledInner<4>(data, x, y, halfSize, inverseCameraDistance);
 	}
-	else if (size > MAX_SPRITE_SIZE)
+	else if (halfSize * 2 > MAX_SPRITE_SIZE)
 	{
 		DrawScaledInner<2>(data, x, y, halfSize, inverseCameraDistance);
 	}
@@ -1053,26 +1216,82 @@ void Renderer::DrawWeapon()
 	
 }
 
+constexpr uint8_t numPatterns = 10;
+uint8_t ceilingPattern = 6; // 1;
+uint8_t floorPattern = 7; // 3;
+
+const uint8_t ditherPatterns[] PROGMEM =
+{
+	0xff, 0xff, 0xff, 0xff,
+	0x55, 0x00, 0x55, 0x00,
+	0x55, 0xff, 0x55, 0xff,
+	0x55, 0xaa, 0x55, 0xaa,
+	0x77, 0xff, 0xdd, 0xff,
+	0x88, 0x00, 0x22, 0x00,
+	0x55, 0x00, 0xaa, 0x00,
+	0x55, 0xff, 0xaa, 0xff,
+	0xaa, 0x00, 0x88, 0x00,
+	0x55, 0xff, 0x77, 0xff,
+};
+
+uint8_t prevButtons = 0;
+
 void Renderer::DrawBackground()
 {
 	uint8_t* ptr = Platform::GetScreenBuffer();
 	uint8_t counter = 64;
 
+	const uint8_t* ceilingPtr = &ditherPatterns[ceilingPattern * 4];
+	const uint8_t* floorPtr = &ditherPatterns[floorPattern * 4];
+	/*
+	if ((Platform::GetInput() & INPUT_A) && !(prevButtons & INPUT_A))
+	{
+		ceilingPattern++;
+		if (ceilingPattern == numPatterns)
+			ceilingPattern = 0;
+	}
+	if ((Platform::GetInput() & INPUT_B) && !(prevButtons & INPUT_B))
+	{
+		floorPattern++;
+		if (floorPattern == numPatterns)
+			floorPattern = 0;
+	}
+	*/
+	prevButtons = Platform::GetInput();
+
 	while (counter--)
 	{
-		*ptr++ = 0x55;  *ptr++ = 0;
-		*ptr++ = 0x55;  *ptr++ = 0;
-		*ptr++ = 0x55;  *ptr++ = 0;
-		*ptr++ = 0x55;  *ptr++ = 0;
+		*ptr++ = pgm_read_byte(&ceilingPtr[0]);
+		*ptr++ = pgm_read_byte(&ceilingPtr[1]);
+		*ptr++ = pgm_read_byte(&ceilingPtr[2]);
+		*ptr++ = pgm_read_byte(&ceilingPtr[3]);
+
+		*ptr++ = pgm_read_byte(&ceilingPtr[0]);
+		*ptr++ = pgm_read_byte(&ceilingPtr[1]);
+		*ptr++ = pgm_read_byte(&ceilingPtr[2]);
+		*ptr++ = pgm_read_byte(&ceilingPtr[3]);
+		//*ptr++ = 0x55;  *ptr++ = 0;
+		//*ptr++ = 0x55;  *ptr++ = 0;
+		//*ptr++ = 0x55;  *ptr++ = 0;
+		//*ptr++ = 0x55;  *ptr++ = 0;
 	}
 
 	counter = 64;
 	while (counter--)
 	{
-		*ptr++ = 0x55;  *ptr++ = 0xAA;
-		*ptr++ = 0x55;  *ptr++ = 0xAA;
-		*ptr++ = 0x55;  *ptr++ = 0xAA;
-		*ptr++ = 0x55;  *ptr++ = 0xAA;
+		*ptr++ = pgm_read_byte(&floorPtr[0]);
+		*ptr++ = pgm_read_byte(&floorPtr[1]);
+		*ptr++ = pgm_read_byte(&floorPtr[2]);
+		*ptr++ = pgm_read_byte(&floorPtr[3]);
+
+		*ptr++ = pgm_read_byte(&floorPtr[0]);
+		*ptr++ = pgm_read_byte(&floorPtr[1]);
+		*ptr++ = pgm_read_byte(&floorPtr[2]);
+		*ptr++ = pgm_read_byte(&floorPtr[3]);
+		//*ptr++ = 0x55;  *ptr++ = 0xAA;
+		//*ptr++ = 0x55;  *ptr++ = 0xAA;
+		//*ptr++ = 0x55;  *ptr++ = 0xAA;
+		//*ptr++ = 0x55;  *ptr++ = 0xAA;
 	}
 }
 
@@ -1138,6 +1357,9 @@ void Renderer::DrawHUD()
 
 	if(Game::player.damageTime > 0)
 		DrawDamageIndicator();
+
+	if (Game::displayMessage)
+		Font::PrintString(Game::displayMessage, 0, 0);
 }
 
 void Renderer::Render()
@@ -1162,6 +1384,7 @@ void Renderer::Render()
 	camera.clipSin = FixedSin(-camera.angle + CLIP_ANGLE);
 
 	DrawCells();
+	//DrawFloorLines();
 
 	EnemyManager::Draw();
 	ProjectileManager::Draw();

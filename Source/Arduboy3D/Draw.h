@@ -81,6 +81,9 @@ private:
 	static void DrawWallSegment(int16_t x1, int16_t w1, int16_t x2, int16_t w2, bool edgeLeft, bool edgeRight, bool shadeEdge);
 	static void DrawWall(int16_t x1, int16_t y1, int16_t x2, int16_t y2, bool edgeLeft, bool edgeRight, bool shadeEdge);
 #endif
+	static void DrawFloorLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2);
+	static void DrawFloorLineInner(int16_t x1, int16_t y1, int16_t x2, int16_t y2);
+	static void DrawFloorLines();
 
 	static bool isFrustrumClipped(int16_t x, int16_t y);
 	static void TransformToViewSpace(int16_t x, int16_t y, int16_t& outX, int16_t& outY);
