@@ -76,13 +76,16 @@ void ProjectileManager::Update()
 					Map::SetCell(cellX, cellY, CellType::Empty);
 					ParticleSystemManager::CreateExplosion(cellX * CELL_SIZE + CELL_SIZE / 2, cellY * CELL_SIZE + CELL_SIZE / 2, true);
 
-					switch ((Random() % 4))
+					switch ((Random() % 5))
 					{
 					case 0:
 						EnemyManager::Spawn(EnemyType::Spider, cellX * CELL_SIZE + CELL_SIZE / 2, cellY * CELL_SIZE + CELL_SIZE / 2);
 						break;
 					case 1:
 						Map::SetCell(cellX, cellY, CellType::Potion);
+						break;
+					case 2:
+						Map::SetCell(cellX, cellY, CellType::Coins);
 						break;
 					}
 					Platform::PlaySound(Sounds::Kill);
@@ -102,7 +105,6 @@ void ProjectileManager::Update()
 					if (overlappingEnemy)
 					{
 						overlappingEnemy->Damage(Player::attackStrength);
-						ParticleSystemManager::CreateExplosion(p.x, p.y, true);
 
 						hitAnything = true;
 					}
@@ -113,6 +115,10 @@ void ProjectileManager::Update()
 					if (enemyArchetype)
 					{
 						Game::player.Damage(enemyArchetype->GetAttackStrength());
+						if (Game::player.hp == 0)
+						{
+							Game::stats.killedBy = ((Enemy*)owner)->GetType();
+						}
 					}
 					hitAnything = true;
 				}

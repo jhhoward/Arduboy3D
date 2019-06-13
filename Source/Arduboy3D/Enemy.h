@@ -7,12 +7,12 @@
 
 enum class EnemyType : uint8_t
 {
-	None,
 	Skeleton,
 	Mage,
 	Bat,
 	Spider,
-	NumEnemyTypes
+	NumEnemyTypes,
+	None = NumEnemyTypes
 };
 
 enum class EnemyState : uint8_t
@@ -58,9 +58,11 @@ public:
 	void Damage(uint8_t amount);
 	void Clear() { type = EnemyType::None; }
 	const EnemyArchetype* GetArchetype() const;
+	EnemyState GetState() const { return state; }
+	EnemyType GetType() const { return type; }
 
 private:
-	static const EnemyArchetype archetypes[(int)EnemyType::NumEnemyTypes - 1];
+	static const EnemyArchetype archetypes[(int)EnemyType::NumEnemyTypes];
 
 	bool ShouldFireProjectile() const;
 	bool FireProjectile(uint8_t angle);
@@ -82,7 +84,7 @@ private:
 class EnemyManager
 {
 public:
-	static constexpr int maxEnemies = 24;
+	static constexpr int maxEnemies = 24; //24;
 	static Enemy enemies[maxEnemies];
 	
 	static void Spawn(EnemyType enemyType, int16_t x, int16_t y);

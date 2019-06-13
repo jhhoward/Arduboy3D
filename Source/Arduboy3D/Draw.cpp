@@ -26,7 +26,7 @@
 Camera Renderer::camera;
 uint8_t Renderer::wBuffer[DISPLAY_WIDTH];
 int8_t Renderer::horizonBuffer[DISPLAY_WIDTH];
-uint8_t Renderer::globalAnimationFrame = 0;
+uint8_t Renderer::globalRenderFrame = 0;
 uint8_t Renderer::numBufferSlicesFilled = 0;
 QueuedDrawable Renderer::queuedDrawables[MAX_QUEUED_DRAWABLES];
 uint8_t Renderer::numQueuedDrawables = 0;
@@ -594,12 +594,9 @@ void Renderer::DrawCell(uint8_t x, uint8_t y)
 
 	switch (cellType)
 	{
-	case CellType::Skeleton:
-		DrawObject(skeletonSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2);
-		return;
 	case CellType::Torch:
 	{
-		const uint16_t* torchSpriteData = globalAnimationFrame & 4 ? torchSpriteData1 : torchSpriteData2;
+		const uint16_t* torchSpriteData = Game::globalTickFrame & 4 ? torchSpriteData1 : torchSpriteData2;
 		constexpr uint8_t torchScale = 75;
 
 		if (Map::IsSolid(x - 1, y))
@@ -632,8 +629,23 @@ void Renderer::DrawCell(uint8_t x, uint8_t y)
 	case CellType::Potion:
 		DrawObject(potionSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 64);
 		return;
+	case CellType::Scroll:
+		DrawObject(scrollSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 64);
+		return;
+	case CellType::Coins:
+		DrawObject(coinsSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 64);
+		return;
+	case CellType::Crown:
+		DrawObject(crownSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 64);
+		return;
+	case CellType::Sign:
+		DrawObject(signSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 80);
+		return;
 	case CellType::Chest:
-		DrawObject(chestSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 96);
+		DrawObject(chestSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 75);
+		return;
+	case CellType::ChestOpened:
+		DrawObject(chestOpenSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 75);
 		return;
 	}
 
@@ -660,7 +672,7 @@ void Renderer::DrawCell(uint8_t x, uint8_t y)
 #if WITH_IMAGE_TEXTURES
 	const uint16_t* texture = wallTextureData + (16 * (cellType - 1));
 #elif WITH_VECTOR_TEXTURES
-	const uint8_t* texture = (const uint8_t*) pgm_read_ptr(&textures[(uint8_t)cellType - (uint8_t)CellType::FirstSolidCell]);
+	const uint8_t* texture = vectorTexture0; // (const uint8_t*) pgm_read_ptr(&textures[(uint8_t)cellType - (uint8_t)CellType::FirstSolidCell]);
 #endif
 
 	if (!blockedLeft && camera.x < x1)
@@ -772,11 +784,10 @@ void Renderer::DrawCells()
 	}	
 }
 
-template<int scaleMultiplier>
-inline void DrawScaledOutline(const uint16_t* data, int8_t x, int8_t y, uint8_t halfSize, uint8_t inverseCameraDistance)
+void DrawScaledOutline(const uint16_t* data, int8_t x, int8_t y, uint8_t halfSize, uint8_t inverseCameraDistance, uint8_t shiftAmount, bool invert)
 {
 	uint8_t size = 2 * halfSize;
-	const uint8_t* lut = scaleLUT + (((halfSize - 1) / scaleMultiplier) * ((halfSize - 1) / scaleMultiplier));
+	const uint8_t* lut = scaleLUT + (((halfSize - 1) >> shiftAmount) * ((halfSize - 1) >> shiftAmount));
 
 	uint8_t i0 = x < 0 ? -x : 0;
 	uint8_t i1 = x + size > DISPLAY_WIDTH ? DISPLAY_WIDTH - x : size;
@@ -784,6 +795,7 @@ inline void DrawScaledOutline(const uint16_t* data, int8_t x, int8_t y, uint8_t 
 	uint8_t j1 = y + size > DISPLAY_HEIGHT ? DISPLAY_HEIGHT - y : size;
 
 	int8_t outX = x >= 0 ? x : 0;
+	uint16_t invertMask = invert ? 0xffff : 0;
 	
 	uint16_t leftTransparencyAndColourColumn = 0;
 	uint16_t middleTransparencyColumn = 0;
@@ -818,7 +830,7 @@ inline void DrawScaledOutline(const uint16_t* data, int8_t x, int8_t y, uint8_t 
 			}
 			else
 			{
-				const uint8_t u = pgm_read_byte(&lut[i / scaleMultiplier]);
+				const uint8_t u = pgm_read_byte(&lut[i >> shiftAmount]);
 
 				if (wasVisible)
 				{
@@ -826,14 +838,14 @@ inline void DrawScaledOutline(const uint16_t* data, int8_t x, int8_t y, uint8_t 
 					middleColourColumn = rightColourColumn;
 					middleTransparencyColumn = rightTransparencyColumn;
 					rightTransparencyColumn = pgm_read_word(&data[u * 2]);
-					rightColourColumn = pgm_read_word(&data[u * 2 + 1]);
+					rightColourColumn = pgm_read_word(&data[u * 2 + 1]) ^ invertMask;
 					leftRightOutlineColumn = leftTransparencyAndColourColumn | (rightColourColumn & rightTransparencyColumn);
 				}
 				else
 				{
 					leftTransparencyAndColourColumn = 0;
 					rightTransparencyColumn = pgm_read_word(&data[u * 2]);
-					rightColourColumn = pgm_read_word(&data[u * 2 + 1]);
+					rightColourColumn = pgm_read_word(&data[u * 2 + 1]) ^ invertMask;
 					middleColourColumn = rightColourColumn;
 					middleTransparencyColumn = rightTransparencyColumn;
 					leftRightOutlineColumn = (rightColourColumn & rightTransparencyColumn);
@@ -869,7 +881,7 @@ inline void DrawScaledOutline(const uint16_t* data, int8_t x, int8_t y, uint8_t 
 				}
 				else
 				{
-					uint8_t v = pgm_read_byte(&lut[j / scaleMultiplier]);
+					uint8_t v = pgm_read_byte(&lut[j >> shiftAmount]);
 					uint16_t mask = pgm_read_word(&scaleDrawReadMasks[v]);
 					downLeftOrRightIsOutline = (leftRightOutlineColumn & mask) != 0;
 					downIsOpaque = (middleTransparencyColumn & mask) != 0;
@@ -996,7 +1008,7 @@ inline void DrawScaledNoOutline(const uint16_t* data, int8_t x, int8_t y, uint8_
 	}
 }
 
-void Renderer::DrawScaled(const uint16_t* data, int8_t x, int8_t y, uint8_t halfSize, uint8_t inverseCameraDistance)
+void Renderer::DrawScaled(const uint16_t* data, int8_t x, int8_t y, uint8_t halfSize, uint8_t inverseCameraDistance, bool invert)
 {
 	if (halfSize > MAX_SPRITE_SIZE * 2)
 	{
@@ -1004,15 +1016,15 @@ void Renderer::DrawScaled(const uint16_t* data, int8_t x, int8_t y, uint8_t half
 	}
 	else if (halfSize > MAX_SPRITE_SIZE)
 	{
-		DrawScaledInner<4>(data, x, y, halfSize, inverseCameraDistance);
+		DrawScaledInner(data, x, y, halfSize, inverseCameraDistance, 2, invert);
 	}
 	else if (halfSize * 2 > MAX_SPRITE_SIZE)
 	{
-		DrawScaledInner<2>(data, x, y, halfSize, inverseCameraDistance);
+		DrawScaledInner(data, x, y, halfSize, inverseCameraDistance, 1, invert);
 	}
 	else if(halfSize > 2)
 	{
-		DrawScaledInner<1>(data, x, y, halfSize, inverseCameraDistance);
+		DrawScaledInner(data, x, y, halfSize, inverseCameraDistance, 0, invert);
 	}
 	else if (halfSize == 2)
 	{
@@ -1100,7 +1112,7 @@ QueuedDrawable* Renderer::CreateQueuedDrawable(uint8_t inverseCameraDistance)
 	return &queuedDrawables[insertionPoint];
 }
 
-void Renderer::QueueSprite(const uint16_t* data, int8_t x, int8_t y, uint8_t halfSize, uint8_t inverseCameraDistance)
+void Renderer::QueueSprite(const uint16_t* data, int8_t x, int8_t y, uint8_t halfSize, uint8_t inverseCameraDistance, bool invert)
 {
 	if(x < -halfSize * 2)
 		return;
@@ -1119,6 +1131,7 @@ void Renderer::QueueSprite(const uint16_t* data, int8_t x, int8_t y, uint8_t hal
 		drawable->y = y;
 		drawable->halfSize = halfSize;
 		drawable->inverseCameraDistance = inverseCameraDistance;
+		drawable->invert = invert;
 	}
 }
 
@@ -1130,7 +1143,7 @@ void Renderer::RenderQueuedDrawables()
 		
 		if(drawable.type == DrawableType::Sprite)
 		{
-			DrawScaled(drawable.spriteData, drawable.x, drawable.y, drawable.halfSize, drawable.inverseCameraDistance);
+			DrawScaled(drawable.spriteData, drawable.x, drawable.y, drawable.halfSize, drawable.inverseCameraDistance, drawable.invert);
 		}
 		else
 		{
@@ -1167,7 +1180,7 @@ bool Renderer::TransformAndCull(int16_t worldX, int16_t worldY, int16_t& outScre
 	return true;
 }
 
-void Renderer::DrawObject(const uint16_t* spriteData, int16_t x, int16_t y, uint8_t scale, AnchorType anchor)
+void Renderer::DrawObject(const uint16_t* spriteData, int16_t x, int16_t y, uint8_t scale, AnchorType anchor, bool invert)
 {
 	int16_t screenX, screenW;
 
@@ -1193,7 +1206,7 @@ void Renderer::DrawObject(const uint16_t* spriteData, int16_t x, int16_t y, uint
 			break;
 		}
 		
-		QueueSprite(spriteData, screenX - spriteSize, outY, (uint8_t)spriteSize, inverseCameraDistance);
+		QueueSprite(spriteData, screenX - spriteSize, outY, (uint8_t)spriteSize, inverseCameraDistance, invert);
 	}
 }
 
@@ -1216,82 +1229,20 @@ void Renderer::DrawWeapon()
 	
 }
 
-constexpr uint8_t numPatterns = 10;
-uint8_t ceilingPattern = 6; // 1;
-uint8_t floorPattern = 7; // 3;
-
-const uint8_t ditherPatterns[] PROGMEM =
-{
-	0xff, 0xff, 0xff, 0xff,
-	0x55, 0x00, 0x55, 0x00,
-	0x55, 0xff, 0x55, 0xff,
-	0x55, 0xaa, 0x55, 0xaa,
-	0x77, 0xff, 0xdd, 0xff,
-	0x88, 0x00, 0x22, 0x00,
-	0x55, 0x00, 0xaa, 0x00,
-	0x55, 0xff, 0xaa, 0xff,
-	0xaa, 0x00, 0x88, 0x00,
-	0x55, 0xff, 0x77, 0xff,
-};
-
-uint8_t prevButtons = 0;
-
 void Renderer::DrawBackground()
 {
 	uint8_t* ptr = Platform::GetScreenBuffer();
-	uint8_t counter = 64;
-
-	const uint8_t* ceilingPtr = &ditherPatterns[ceilingPattern * 4];
-	const uint8_t* floorPtr = &ditherPatterns[floorPattern * 4];
-	/*
-	if ((Platform::GetInput() & INPUT_A) && !(prevButtons & INPUT_A))
-	{
-		ceilingPattern++;
-		if (ceilingPattern == numPatterns)
-			ceilingPattern = 0;
-	}
-	if ((Platform::GetInput() & INPUT_B) && !(prevButtons & INPUT_B))
-	{
-		floorPattern++;
-		if (floorPattern == numPatterns)
-			floorPattern = 0;
-	}
-	*/
-	prevButtons = Platform::GetInput();
+	uint8_t counter = 128;
 
 	while (counter--)
 	{
-		*ptr++ = pgm_read_byte(&ceilingPtr[0]);
-		*ptr++ = pgm_read_byte(&ceilingPtr[1]);
-		*ptr++ = pgm_read_byte(&ceilingPtr[2]);
-		*ptr++ = pgm_read_byte(&ceilingPtr[3]);
-
-		*ptr++ = pgm_read_byte(&ceilingPtr[0]);
-		*ptr++ = pgm_read_byte(&ceilingPtr[1]);
-		*ptr++ = pgm_read_byte(&ceilingPtr[2]);
-		*ptr++ = pgm_read_byte(&ceilingPtr[3]);
-		//*ptr++ = 0x55;  *ptr++ = 0;
-		//*ptr++ = 0x55;  *ptr++ = 0;
-		//*ptr++ = 0x55;  *ptr++ = 0;
-		//*ptr++ = 0x55;  *ptr++ = 0;
+		*ptr++ = 0x55; *ptr++ = 0x00; *ptr++ = 0xaa; *ptr++ = 0x00;
 	}
 
-	counter = 64;
+	counter = 128;
 	while (counter--)
 	{
-		*ptr++ = pgm_read_byte(&floorPtr[0]);
-		*ptr++ = pgm_read_byte(&floorPtr[1]);
-		*ptr++ = pgm_read_byte(&floorPtr[2]);
-		*ptr++ = pgm_read_byte(&floorPtr[3]);
-
-		*ptr++ = pgm_read_byte(&floorPtr[0]);
-		*ptr++ = pgm_read_byte(&floorPtr[1]);
-		*ptr++ = pgm_read_byte(&floorPtr[2]);
-		*ptr++ = pgm_read_byte(&floorPtr[3]);
-		//*ptr++ = 0x55;  *ptr++ = 0xAA;
-		//*ptr++ = 0x55;  *ptr++ = 0xAA;
-		//*ptr++ = 0x55;  *ptr++ = 0xAA;
-		//*ptr++ = 0x55;  *ptr++ = 0xAA;
+		*ptr++ = 0x55; *ptr++ = 0xff; *ptr++ = 0xaa; *ptr++ = 0xff;
 	}
 }
 
@@ -1364,6 +1315,8 @@ void Renderer::DrawHUD()
 
 void Renderer::Render()
 {
+	globalRenderFrame++;
+
 	DrawBackground();
 
 	numBufferSlicesFilled = 0;

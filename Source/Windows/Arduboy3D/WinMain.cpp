@@ -509,7 +509,8 @@ int main(int argc, char* argv[])
 	
 	//DumpFont();
 
-	SeedRandom((uint16_t)time(nullptr));
+	//SeedRandom((uint16_t)time(nullptr));
+	SeedRandom(0);
 	Game::Init();
 	
 	bool running = true;

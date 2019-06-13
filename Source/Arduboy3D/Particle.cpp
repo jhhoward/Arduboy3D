@@ -6,26 +6,20 @@ ParticleSystem ParticleSystemManager::systems[MAX_SYSTEMS];
 
 void ParticleSystem::Init()
 {
-	for (Particle& p : particles)
-	{
-		p.life = 0;
-	}
+	life = 0;
 }
 
 void ParticleSystem::Step()
 {
-	isActive = false;
-	
 	for (Particle& p : particles)
 	{
-		if (p.life > 0)
+		if (p.IsActive())
 		{
 			p.velY += gravity;
-			p.life--;
 
-			if (p.x + p.velX < -127 || p.x + p.velX > 127 || p.y + p.velY < -127 || p.life == 0)
+			if (p.x + p.velX < -127 || p.x + p.velX > 127 || p.y + p.velY < -127)
 			{
-				p.life = 0;
+				p.x = -128;
 				continue;
 			}
 
@@ -37,10 +31,10 @@ void ParticleSystem::Step()
 
 			p.x += p.velX;
 			p.y += p.velY;
-
-			isActive = true;
 		}
 	}
+	
+	life--;
 }
 
 void ParticleSystem::Draw(int x, int halfScale)
@@ -51,10 +45,8 @@ void ParticleSystem::Draw(int x, int halfScale)
 	
 	for (Particle& p : particles)
 	{
-		if (p.life > 0)
+		if (p.IsActive())
 		{
-			//int outX = x + ((p.x * scale) >> 8);
-			//int outY = HORIZON + ((p.y * scale) >> 8);
 			int outX = x + ((p.x * scale) >> 8);
 			int outY = horizon + ((p.y * scale) >> 8);
 
@@ -69,39 +61,25 @@ void ParticleSystem::Draw(int x, int halfScale)
 	}
 }
 
-void ParticleSystem::Explode(uint8_t count)
+void ParticleSystem::Explode()
 {
-	bool searchExhausted = false;
-
-	for (int n = 0; n < PARTICLES_PER_SYSTEM && count; n++)
+	for (Particle& p : particles)
 	{
-		Particle& p = particles[n];
+		p.x = (Random() & 31) - 16;
+		p.y = (Random() & 31) - 16;
 
-		if (searchExhausted || !p.IsActive())
-		{
-			p.x = (Random() & 31) - 16;
-			p.y = (Random() & 31) - 16;
-
-			p.velX = (Random() & 31) - 16;
-			p.velY = (Random() & 31) - 25;
-
-			p.life = (Random() & 15) + 6;
-			count--;
-		}
-
-		if (n == PARTICLES_PER_SYSTEM - 1 && !searchExhausted)
-		{
-			searchExhausted = true;
-			n = 0;
-		}
+		p.velX = (Random() & 31) - 16;
+		p.velY = (Random() & 31) - 25;
 	}
+	
+	life = 22;
 }
 
 void ParticleSystemManager::Draw()
 {
 	for (ParticleSystem& system : systems)
 	{
-		if(system.isActive)
+		if(system.IsActive())
 		{
 			int16_t screenX, screenW;
 
@@ -124,7 +102,7 @@ void ParticleSystemManager::Init()
 {
 	for (ParticleSystem& system : systems)
 	{
-		system.isActive = false;
+		system.Init();
 	}
 }
 
@@ -132,7 +110,7 @@ void ParticleSystemManager::Update()
 {
 	for (ParticleSystem& system : systems)
 	{
-		if(system.isActive)
+		if(system.IsActive())
 		{
 			system.Step();
 		}
@@ -141,17 +119,31 @@ void ParticleSystemManager::Update()
 
 void ParticleSystemManager::CreateExplosion(int16_t worldX, int16_t worldY, bool isWhite)
 {
+	ParticleSystem* newSystem = nullptr;
 	for(ParticleSystem& system : systems)
 	{
-		if(!system.isActive)
+		if(!system.IsActive())
 		{
-			system.worldX = worldX;
-			system.worldY = worldY;
-			system.isActive = true;
-			system.isWhite = isWhite;
-			system.Explode(PARTICLES_PER_SYSTEM);
-			
-			return;
+			newSystem = &system;
+			break;
 		}
 	}	
+
+	if (!newSystem)
+	{
+		newSystem = &systems[0];
+
+		for (uint8_t n = 1; n < MAX_SYSTEMS; n++)
+		{
+			if (systems[n].life < newSystem->life)
+			{
+				newSystem = &systems[n];
+			}
+		}
+	}
+
+	newSystem->worldX = worldX;
+	newSystem->worldY = worldY;
+	newSystem->isWhite = isWhite;
+	newSystem->Explode();
 }

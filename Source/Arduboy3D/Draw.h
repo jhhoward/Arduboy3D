@@ -40,7 +40,8 @@ struct QueuedDrawable
 		struct ParticleSystem* particleSystem;
 	};
 	
-	DrawableType type;
+	DrawableType type : 1;
+	bool invert : 1;
 	int8_t x;
 	int8_t y;
 	uint8_t halfSize;
@@ -52,15 +53,17 @@ class Renderer
 public:
 	static Camera camera;
 	static uint8_t wBuffer[DISPLAY_WIDTH];
-	static uint8_t globalAnimationFrame;
+	static uint8_t globalRenderFrame;
 
 	static void Render();
 
-	static void DrawObject(const uint16_t* spriteData, int16_t x, int16_t y, uint8_t scale = 128, AnchorType anchor = AnchorType::Floor);
+	static void DrawObject(const uint16_t* spriteData, int16_t x, int16_t y, uint8_t scale = 128, AnchorType anchor = AnchorType::Floor, bool invert = false);
 	static QueuedDrawable* CreateQueuedDrawable(uint8_t inverseCameraDistance);
 	static int8_t GetHorizon(int16_t x);
 	
 	static bool TransformAndCull(int16_t worldX, int16_t worldY, int16_t& outScreenX, int16_t& outScreenW);
+
+	static void DrawScaled(const uint16_t* data, int8_t x, int8_t y, uint8_t halfSize, uint8_t inverseCameraDistance, bool invert = false);
 	
 private:
 	static int8_t horizonBuffer[DISPLAY_WIDTH];
@@ -96,9 +99,7 @@ private:
 	static void DrawBar(uint8_t* screenPtr, const uint8_t* iconData, uint8_t amount, uint8_t max);
 	static void DrawDamageIndicator();
 	
-	static void DrawScaled(const uint16_t* data, int8_t x, int8_t y, uint8_t halfSize, uint8_t inverseCameraDistance);
-	
-	static void QueueSprite(const uint16_t* data, int8_t x, int8_t y, uint8_t halfSize, uint8_t inverseCameraDistance);
+	static void QueueSprite(const uint16_t* data, int8_t x, int8_t y, uint8_t halfSize, uint8_t inverseCameraDistance, bool invert = false);
 	static void RenderQueuedDrawables();
 		
 

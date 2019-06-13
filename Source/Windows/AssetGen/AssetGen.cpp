@@ -450,7 +450,12 @@ int main(int argc, char* argv[])
 	EncodeSprite3D(typeFile, dataFile, "Images/entrance.png", "entranceSpriteData");
 	EncodeSprite3D(typeFile, dataFile, "Images/exit.png", "exitSpriteData");
 	EncodeSprite3D(typeFile, dataFile, "Images/urn.png", "urnSpriteData");
+	EncodeSprite3D(typeFile, dataFile, "Images/sign.png", "signSpriteData");
+	EncodeSprite3D(typeFile, dataFile, "Images/crown.png", "crownSpriteData");
+	EncodeSprite3D(typeFile, dataFile, "Images/coins.png", "coinsSpriteData");
+	EncodeSprite3D(typeFile, dataFile, "Images/scroll.png", "scrollSpriteData");
 	EncodeSprite3D(typeFile, dataFile, "Images/chest.png", "chestSpriteData");
+	EncodeSprite3D(typeFile, dataFile, "Images/chestopen.png", "chestOpenSpriteData");
 	EncodeSprite3D(typeFile, dataFile, "Images/potion.png", "potionSpriteData");
 	EncodeSprite3D(typeFile, dataFile, "Images/bat.png", "batSpriteData");
 	EncodeSprite3D(typeFile, dataFile, "Images/spider.png", "spiderSpriteData");

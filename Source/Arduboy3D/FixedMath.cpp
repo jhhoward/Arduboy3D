@@ -24,5 +24,5 @@ uint16_t Random()
 
 void SeedRandom(uint16_t seed)
 {
-	xs = seed;
+	xs = seed | 1;
 }

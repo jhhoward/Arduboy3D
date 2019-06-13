@@ -25,9 +25,24 @@ extern const uint16_t exitSpriteData[];
 // Generated from Images/urn.png
 constexpr uint8_t urnSpriteData_numFrames = 1;
 extern const uint16_t urnSpriteData[];
+// Generated from Images/sign.png
+constexpr uint8_t signSpriteData_numFrames = 1;
+extern const uint16_t signSpriteData[];
+// Generated from Images/crown.png
+constexpr uint8_t crownSpriteData_numFrames = 1;
+extern const uint16_t crownSpriteData[];
+// Generated from Images/coins.png
+constexpr uint8_t coinsSpriteData_numFrames = 1;
+extern const uint16_t coinsSpriteData[];
+// Generated from Images/scroll.png
+constexpr uint8_t scrollSpriteData_numFrames = 1;
+extern const uint16_t scrollSpriteData[];
 // Generated from Images/chest.png
 constexpr uint8_t chestSpriteData_numFrames = 1;
 extern const uint16_t chestSpriteData[];
+// Generated from Images/chestopen.png
+constexpr uint8_t chestOpenSpriteData_numFrames = 1;
+extern const uint16_t chestOpenSpriteData[];
 // Generated from Images/potion.png
 constexpr uint8_t potionSpriteData_numFrames = 1;
 extern const uint16_t potionSpriteData[];

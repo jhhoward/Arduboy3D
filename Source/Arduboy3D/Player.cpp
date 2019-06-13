@@ -7,21 +7,32 @@
 #include "Enemy.h"
 #include "Map.h"
 #include "Sounds.h"
+#include "Particle.h"
 
 #define USE_ROTATE_BOB 0
 #define STRAFE_TILT 14
 #define ROTATE_TILT 3
 
+const char SignMessage1[] PROGMEM = "Abandon all hope ye who enter!";
+
 void Player::Init()
+{
+	NextLevel();
+	hp = maxHP;
+}
+
+void Player::NextLevel()
 {
 	x = CELL_SIZE * 1 + CELL_SIZE / 2;
 	y = CELL_SIZE * 1 + CELL_SIZE / 2;
 	angle = FIXED_ANGLE_45;
-	hp = maxHP;
 	mana = maxMana;
 	damageTime = 0;
 	shakeTime = 0;
 	reloadTime = 0;
+	velocityX = 0;
+	velocityY = 0;
+	angularVelocity = 0;
 }
 
 void Player::Fire()
@@ -195,16 +206,65 @@ void Player::Tick()
 	switch (Map::GetCellSafe(cellX, cellY))
 	{
 	case CellType::Potion:
+		if (hp < maxHP)
+		{
+			Map::SetCell(cellX, cellY, CellType::Empty);
+			hp = maxHP;
+			Platform::PlaySound(Sounds::Pickup);
+			Game::ShowMessage(PSTR("Drank a potion of healing"));
+		}
+		break;
+	case CellType::Coins:
 		Map::SetCell(cellX, cellY, CellType::Empty);
-		hp = maxHP;
 		Platform::PlaySound(Sounds::Pickup);
-		Game::ShowMessage(PSTR("Picked up a health potion"));
+		Game::ShowMessage(PSTR("Found some gold coins"));
+		Game::stats.coinsCollected++;
+		break;
+	case CellType::Crown:
+		Map::SetCell(cellX, cellY, CellType::Empty);
+		Platform::PlaySound(Sounds::Pickup);
+		Game::ShowMessage(PSTR("Found a jewel encrusted crown"));
+		Game::stats.crownsCollected++;
+		break;
+	case CellType::Scroll:
+		Map::SetCell(cellX, cellY, CellType::Empty);
+		Platform::PlaySound(Sounds::Pickup);
+		Game::ShowMessage(PSTR("Found an ancient scroll"));
+		Game::stats.scrollsCollected++;
 		break;
 	}
 }
 
+bool Player::IsWorldColliding() const
+{
+	return Map::IsBlockedAtWorldPosition(x - collisionSize, y - collisionSize)
+		|| Map::IsBlockedAtWorldPosition(x + collisionSize, y - collisionSize)
+		|| Map::IsBlockedAtWorldPosition(x + collisionSize, y + collisionSize)
+		|| Map::IsBlockedAtWorldPosition(x - collisionSize, y + collisionSize);
+}
+
 bool Player::CheckCollisions()
 {
+	int16_t lookAheadX = (x + (FixedCos(angle) * lookAheadDistance) / FIXED_ONE);
+	int16_t lookAheadY = (y + (FixedSin(angle) * lookAheadDistance) / FIXED_ONE);
+	uint8_t lookAheadCellX = (uint8_t)(lookAheadX / CELL_SIZE);
+	uint8_t lookAheadCellY = (uint8_t)(lookAheadY / CELL_SIZE);
+
+	CellType lookAheadCell = Map::GetCellSafe(lookAheadCellX, lookAheadCellY);
+	switch (lookAheadCell)
+	{
+	case CellType::Chest:
+		Map::SetCell(lookAheadCellX, lookAheadCellY, CellType::ChestOpened);
+		ParticleSystemManager::CreateExplosion(lookAheadX, lookAheadY, true);
+		Platform::PlaySound(Sounds::Pickup);
+		Game::ShowMessage(PSTR("Found a chest full of treasure!"));
+		Game::stats.chestsOpened++;
+		break;
+	case CellType::Sign:
+		Game::ShowMessage(SignMessage1);
+		break;
+	}
+
 	if (IsWorldColliding())
 	{
 		return true;
@@ -249,17 +309,11 @@ void Player::Damage(uint8_t damageAmount)
 	if (hp <= damageAmount)
 	{
 		Platform::PlaySound(Sounds::PlayerDeath);
-		Die();
+		hp = 0;
 	}
 	else
 	{
 		Platform::PlaySound(Sounds::Ouch);
 		hp -= damageAmount;
 	}
-}
-
-void Player::Die()
-{
-	// TODO
-	hp = 0;
 }

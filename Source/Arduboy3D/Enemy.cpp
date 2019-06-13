@@ -8,10 +8,11 @@
 #include "Generated/SpriteTypes.h"
 #include "Sounds.h"
 #include "Platform.h"
+#include "Particle.h"
 
 Enemy EnemyManager::enemies[maxEnemies];
 
-const EnemyArchetype Enemy::archetypes[(int)EnemyType::NumEnemyTypes - 1] PROGMEM =
+const EnemyArchetype Enemy::archetypes[(int)EnemyType::NumEnemyTypes] PROGMEM =
 {
 	{
 		// Skeleton
@@ -20,7 +21,7 @@ const EnemyArchetype Enemy::archetypes[(int)EnemyType::NumEnemyTypes - 1] PROGME
 		4,					// speed
 		20,					// attackStrength
 		3,					// attackDuration
-		3,					// stunDuration
+		2,					// stunDuration
 		false,				// isRanged
 		96,					// sprite scale
 		AnchorType::Floor	// sprite anchor
@@ -79,8 +80,10 @@ void Enemy::Damage(uint8_t amount)
 {
 	if (amount >= hp)
 	{
+		Game::stats.enemyKills[(int)type]++;
 		type = EnemyType::None;
 		Platform::PlaySound(Sounds::Kill);
+		ParticleSystemManager::CreateExplosion(x, y, true);
 	}
 	else
 	{
@@ -95,7 +98,7 @@ const EnemyArchetype* Enemy::GetArchetype() const
 {
 	if (type == EnemyType::None)
 		return nullptr;
-	return &archetypes[(int)type - 1];
+	return &archetypes[(int)type];
 }
 
 int16_t Clamp(int16_t x, int16_t min, int16_t max)
@@ -197,10 +200,11 @@ void Enemy::StunMove()
 	//
 	//x -= deltaX;
 	//y -= deltaY;
-	int16_t deltaX = (Random() % 16) - 8;
-	int16_t deltaY = (Random() % 16) - 8;
-	x += deltaX;
-	y += deltaY;
+	
+//	int16_t deltaX = (Random() % 16) - 8;
+//	int16_t deltaY = (Random() % 16) - 8;
+//	x += deltaX;
+//	y += deltaY;
 }
 
 bool Enemy::TryMove()
@@ -227,6 +231,11 @@ bool Enemy::TryMove()
 		if (!GetArchetype()->GetIsRanged())
 		{
 			Game::player.Damage(GetArchetype()->GetAttackStrength());
+			if (Game::player.hp == 0)
+			{
+				Game::stats.killedBy = type;
+			}
+
 			state = EnemyState::Attacking;
 			frameDelay = GetArchetype()->GetAttackDuration();
 		}
@@ -318,7 +327,7 @@ void Enemy::Tick()
 
 	if (frameDelay > 0)
 	{
-		if ((Renderer::globalAnimationFrame & 0xf) == 0)
+		if ((Game::globalTickFrame & 0xf) == 0)
 		{
 			frameDelay--;
 		}
@@ -381,8 +390,9 @@ void EnemyManager::Draw()
 	{
 		if(enemy.IsValid())
 		{
+			bool invert = enemy.GetState() == EnemyState::Stunned && (Renderer::globalRenderFrame & 1);
 			const EnemyArchetype* archetype = enemy.GetArchetype();
-			Renderer::DrawObject(archetype->GetSpriteData(), enemy.x, enemy.y, archetype->GetSpriteScale(), archetype->GetSpriteAnchor());
+			Renderer::DrawObject(archetype->GetSpriteData(), enemy.x, enemy.y, archetype->GetSpriteScale(), archetype->GetSpriteAnchor(), invert);
 		}
 	}
 }
@@ -407,9 +417,9 @@ void EnemyManager::SpawnEnemies()
 		{
 			switch (Map::GetCellSafe(x, y))
 			{
-				case CellType::Skeleton:
+				case CellType::Monster:
 				{
-					EnemyType type = (EnemyType)(1 + (Random() % ((int)(EnemyType::NumEnemyTypes) - 1)));
+					EnemyType type = (EnemyType)((Random() % ((int)(EnemyType::NumEnemyTypes))));
 					EnemyManager::Spawn(type, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2);
 					Map::SetCell(x, y, CellType::Empty);
 					break;

@@ -163,14 +163,14 @@ void setup()
   arduboy.boot();
   arduboy.flashlight();
   arduboy.systemButtons();
-  arduboy.bootLogo();
+  //arduboy.bootLogo();
   arduboy.setFrameRate(TARGET_FRAMERATE);
 
-  arduboy.audio.off();
+  //arduboy.audio.off();
   
   //Serial.begin(9600);
 
-  SeedRandom((uint16_t) arduboy.generateRandomSeed());
+//  SeedRandom((uint16_t) arduboy.generateRandomSeed());
   Game::Init();
   
   lastTimingSample = millis();

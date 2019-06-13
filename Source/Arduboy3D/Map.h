@@ -7,7 +7,7 @@ enum class CellType : uint8_t
 	Empty = 0,
 
 	// Monster types
-	Skeleton,
+	Monster,
 
 	// Non collidable decorations
 	Torch,
@@ -16,10 +16,15 @@ enum class CellType : uint8_t
 
 	// Items
 	Potion,
+	Coins,
+	Crown,
+	Scroll,
 
 	// Collidable decorations
 	Urn,
 	Chest,
+	ChestOpened,
+	Sign,
 
 	// Solid cells
 	BrickWall,

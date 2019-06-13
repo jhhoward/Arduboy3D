@@ -2,6 +2,7 @@
 #include "Map.h"
 #include "FixedMath.h"
 #include "Enemy.h"
+#include "Game.h"
 
 uint8_t MapGenerator::GetDistanceToCellType(uint8_t x, uint8_t y, CellType cellType)
 {
@@ -467,7 +468,7 @@ void MapGenerator::Generate()
 	{
 		uint8_t attempts = 255;
 		uint8_t monstersToSpawn = EnemyManager::maxEnemies;
-		CellType monsterType = CellType::Skeleton;
+		CellType monsterType = CellType::Monster;
 		uint8_t minSpacing = 3;
 
 		while (attempts > 0 && monstersToSpawn > 0)
@@ -520,5 +521,90 @@ void MapGenerator::Generate()
 
 	// Add entrance and exit
 	Map::SetCell(1, 1, CellType::Entrance);
-	Map::SetCell(Map::width - 2, Map::height - 2, CellType::Exit);
+	Map::SetCell(Map::width - 3, Map::height - 3, CellType::Exit);
+
+	// Add sign
+	if(false)
+	{
+		uint16_t attempts = 65535;
+		constexpr uint8_t closeness = 5;
+
+		while (attempts > 0)
+		{
+			uint8_t x = Random() % closeness;
+			uint8_t y = Random() % closeness;
+
+			if (Map::GetCellSafe(x, y) == CellType::Empty
+				&&	Map::GetCellSafe(x - 1, y) == CellType::Empty
+				&&	Map::GetCellSafe(x, y - 1) == CellType::Empty
+				&&	Map::GetCellSafe(x + 1, y) == CellType::Empty
+				&&	Map::GetCellSafe(x, y + 1) == CellType::Empty
+				&&	Map::GetCellSafe(x - 1, y - 1) == CellType::Empty
+				&&	Map::GetCellSafe(x + 1, y - 1) == CellType::Empty
+				&&	Map::GetCellSafe(x - 1, y + 1) == CellType::Empty
+				&&	Map::GetCellSafe(x + 1, y + 1) == CellType::Empty
+				&& Map::IsClearLine(x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, playerStartX * CELL_SIZE + CELL_SIZE / 2, playerStartY * CELL_SIZE + CELL_SIZE / 2))
+			{
+				Map::SetCell(x, y, CellType::Sign);
+				break;
+			}
+
+			attempts--;
+		}
+	}
+	else if(Game::floor == 1)
+	{
+		Map::SetCell(2, 2, CellType::Sign);
+	}
+	
+	// Add treasure / items
+	{
+		uint16_t attempts = 65535;
+		uint8_t toSpawn = 8;
+		CellType cellType = CellType::Chest;
+		uint8_t minSpacing = 3;
+		uint8_t minExitSpacing = 6;
+
+		while (attempts > 0 && toSpawn > 0)
+		{
+			uint8_t x = Random() % Map::width;
+			uint8_t y = Random() % Map::height;
+
+			switch (Random() % 5)
+			{
+			case 0:
+				cellType = CellType::Potion;
+				break;
+			case 1:
+				cellType = CellType::Coins;
+				break;
+			case 2:
+				cellType = CellType::Chest;
+				break;
+			case 3:
+				cellType = CellType::Crown;
+				break;
+			case 4:
+				cellType = CellType::Scroll;
+				break;
+			}
+
+			if (Map::GetCellSafe(x, y) == CellType::Empty)
+			{
+				NeighbourInfo info = GetCellNeighbourInfo(x, y);
+
+				if(info.count == 1 
+				&& GetDistanceToCellType(x, y, cellType) > minSpacing
+				&& GetDistanceToCellType(x, y, CellType::Entrance) > minExitSpacing
+				&& GetDistanceToCellType(x, y, CellType::Exit) > minExitSpacing)
+				{
+					Map::SetCell(x, y, cellType);
+					toSpawn--;
+					attempts = 255;
+				}
+			}
+
+			attempts--;
+		}
+	}
 }

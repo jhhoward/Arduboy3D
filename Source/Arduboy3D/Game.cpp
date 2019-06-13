@@ -15,17 +15,25 @@ Player Game::player;
 const char* Game::displayMessage = nullptr;
 uint8_t Game::displayMessageTime = 0;
 Game::State Game::state = Game::State::Menu;
+uint8_t Game::floor = 1;
+uint8_t Game::globalTickFrame = 0;
+Stats Game::stats;
+Menu Game::menu;
 
 void Game::Init()
 {
-	Menu::Init();
-	NextLevel();
+	menu.Init();
+	ParticleSystemManager::Init();
+	ProjectileManager::Init();
+	EnemyManager::Init();
 }
 
 void Game::StartGame()
 {
-	NextLevel();
-	state = State::InGame;
+	floor = 1;
+	stats.Reset();
+	player.Init();
+	SwitchState(State::EnteringLevel);
 }
 
 void Game::SwitchState(State newState)
@@ -33,6 +41,7 @@ void Game::SwitchState(State newState)
 	if(state != newState)
 	{
 		state = newState;
+		menu.ResetTimer();
 	}
 }
 
@@ -46,26 +55,55 @@ void Game::ShowMessage(const char* message)
 
 void Game::NextLevel()
 {
+	if (floor == 10)
+	{
+		GameOver();
+	}
+	else
+	{
+		floor++;
+		SwitchState(State::EnteringLevel);
+	}
+}
+
+void Game::StartLevel()
+{
 	ParticleSystemManager::Init();
 	ProjectileManager::Init();
 	EnemyManager::Init();
 	MapGenerator::Generate();
 	EnemyManager::SpawnEnemies();
 
-	player.Init();
+	player.NextLevel();
 
 	Platform::ExpectLoadDelay();
+	SwitchState(State::InGame);
 }
 
 void Game::Draw()
 {
 	switch(state)
 	{
-		case State::InGame:
-			Renderer::Render();
-			break;
 		case State::Menu:
-			Menu::Draw();
+			menu.Draw();
+			break;
+		case State::EnteringLevel:
+			menu.DrawEnteringLevel();
+			break;
+		case State::InGame:
+		{
+			Renderer::camera.x = player.x;
+			Renderer::camera.y = player.y;
+			Renderer::camera.angle = player.angle;
+
+			Renderer::Render();
+		}
+			break;
+		case State::GameOver:
+			menu.DrawGameOver();
+			break;
+		case State::FadeOut:
+			menu.FadeOut();
 			break;
 	}
 }
@@ -79,13 +117,7 @@ void Game::TickInGame()
 			displayMessage = nullptr;
 	}
 
-	Renderer::globalAnimationFrame++;
-
 	player.Tick();
-
-	Renderer::camera.x = player.x;
-	Renderer::camera.y = player.y;
-	Renderer::camera.angle = player.angle;
 
 	ProjectileManager::Update();
 	ParticleSystemManager::Update();
@@ -95,20 +127,49 @@ void Game::TickInGame()
 	{
 		NextLevel();
 	}
-
+	
 	if (player.hp == 0)
-		NextLevel();
+	{
+		GameOver();
+	}
 }
 
 void Game::Tick()
 {
+	globalTickFrame++;
+
 	switch(state)
 	{
 		case State::InGame:
 			TickInGame();
 			return;
-		case State::Menu:
-			Menu::Tick();
+		case State::EnteringLevel:
+			menu.TickEnteringLevel();
 			return;
+		case State::Menu:
+			menu.Tick();
+			return;
+		case State::GameOver:
+			menu.TickGameOver();
+			return;
+	}
+}
+
+void Game::GameOver()
+{
+	SwitchState(State::FadeOut);
+}
+
+void Stats::Reset()
+{
+	killedBy = EnemyType::None;
+	chestsOpened = 0;
+	coinsCollected = 0;
+	crownsCollected = 0;
+	scrollsCollected = 0;
+
+	for (uint8_t& killCounter : enemyKills)
+	{
+		killCounter = 0;
 	}
 }

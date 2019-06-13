@@ -79,14 +79,14 @@ void Map::DebugDraw()
 		{
 			Platform::PutPixel(x, y, GetCell(x, y) == CellType::BrickWall ? 1 : 0);
 
-			if (x == Renderer::camera.cellX && y == Renderer::camera.cellY && (Renderer::globalAnimationFrame & 8) != 0)
+			if (x == Renderer::camera.cellX && y == Renderer::camera.cellY && (Game::globalTickFrame & 8) != 0)
 			{
 				Platform::PutPixel(x, y, 1);
 			}
 		}
 	}
 
-	if ((Renderer::globalAnimationFrame & 2) != 0)
+	if ((Game::globalTickFrame & 2) != 0)
 	{
 		for (uint8_t n = 0; n < EnemyManager::maxEnemies; n++)
 		{
@@ -147,7 +147,7 @@ bool Map::IsClearLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2)
             y = (yfrac) / CELL_SIZE;
             yfrac += ystep;
 
-			if (IsBlocked(x, y))
+			if (IsSolid(x, y))
 				return false;
 
             x += xstep;
@@ -197,7 +197,7 @@ bool Map::IsClearLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2)
             x = (xfrac) / CELL_SIZE;
             xfrac += xstep;
 
-			if (IsBlocked(x, y))
+			if (IsSolid(x, y))
 				return false;
             y += ystep;
 
@@ -238,7 +238,7 @@ void Map::DrawMinimap()
 		{
 			if (cellX == playerCellX && cellY == playerCellY)
 			{
-				Platform::PutPixel(outX, outY, (Renderer::globalAnimationFrame & 3) ? COLOUR_BLACK : COLOUR_WHITE);
+				Platform::PutPixel(outX, outY, (Game::globalTickFrame & 3) ? COLOUR_BLACK : COLOUR_WHITE);
 			}
 			else
 			{

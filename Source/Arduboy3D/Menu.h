@@ -5,10 +5,26 @@
 class Menu
 {
 public:
-	static void Init();
-	static void Draw();
-	static void Tick();
+	void Init();
+	void Draw();
+	void Tick();
+
+	void TickEnteringLevel();
+	void DrawEnteringLevel();	
+
+	void TickGameOver();
+	void DrawGameOver();	
+	
+	void ResetTimer();
+	
+	void FadeOut();
 	
 private:
-	static int selection;
+	union
+	{
+		uint8_t selection;
+		uint16_t timer;
+		uint16_t fizzleFade;
+	};
+	
 };
