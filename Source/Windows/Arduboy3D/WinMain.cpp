@@ -7,10 +7,15 @@
 #include "Game.h"
 #include "Map.h"
 #include "Draw.h"
+#include "Platform.h"
 #include "FixedMath.h"
+#include "MapGenerator.h"
 #include "lodepng.h"
 
 #define ZOOM_SCALE 1
+#define TONES_END 0x8000
+
+#include "Data_Audio.h"
 
 SDL_Window* AppWindow;
 SDL_Renderer* AppRenderer;
@@ -20,6 +25,7 @@ SDL_Texture* ScreenTexture;
 uint8_t InputMask = 0;
 uint8_t sBuffer[DISPLAY_WIDTH * DISPLAY_HEIGHT / 8];
 
+bool isAudioEnabled = true;
 bool IsRecording = false;
 int CurrentRecordingFrame = 0;
 
@@ -39,12 +45,92 @@ std::vector<KeyMap> KeyMappings =
 	{ SDL_SCANCODE_X, INPUT_B },
 };
 
-void SetLED(uint8_t r, uint8_t g, uint8_t b)
+constexpr int audioSampleRate = 48000;
+
+const uint16_t* currentAudioPattern = nullptr;
+int currentPatternBufferPos = 0;
+
+void Play(const uint16_t* pattern)
+{
+	currentAudioPattern = pattern;
+	currentPatternBufferPos = 0;
+}
+
+void FillAudioBuffer(void *udata, uint8_t *stream, int len)
+{
+	int feedPos = 0;
+	
+	static int waveSamplesLeft = 0;
+	static int noteSamplesLeft = 0;
+	static int frequency = 0;
+	static bool high = false;
+
+	while(feedPos < len)
+	{
+		if(!isAudioEnabled)
+		{
+			while(feedPos < len)
+			{
+				stream[feedPos++] = 0;
+			}
+			return;
+		}
+		
+		if(currentAudioPattern != nullptr)
+		{
+			if(noteSamplesLeft == 0)
+			{
+				frequency = currentAudioPattern[currentPatternBufferPos];
+				uint16_t duration = currentAudioPattern[currentPatternBufferPos + 1];
+				
+				noteSamplesLeft = (audioSampleRate * duration) / 1000;
+				
+				waveSamplesLeft = frequency > 0 ? audioSampleRate / frequency : noteSamplesLeft;
+				
+				currentPatternBufferPos += 2;
+				if(currentAudioPattern[currentPatternBufferPos] == TONES_END)
+				{
+					currentAudioPattern = nullptr;
+				}
+			}
+		}
+		
+		if(frequency == 0)
+		{
+			while(feedPos < len && (!currentAudioPattern || noteSamplesLeft > 0))
+			{
+				stream[feedPos++] = 0;
+				
+				if(noteSamplesLeft > 0)
+					noteSamplesLeft--;
+			}
+		}
+		else
+		{
+			while(feedPos < len && waveSamplesLeft > 0 && noteSamplesLeft > 0)
+			{
+				int volume = 32;
+				stream[feedPos++] = high ? 128 + volume : 128 - volume;
+				waveSamplesLeft--;
+				noteSamplesLeft--;
+			}
+			
+			if(waveSamplesLeft == 0)
+			{
+				high = !high;
+				waveSamplesLeft = audioSampleRate / frequency;
+			}
+		}
+		
+	}
+}
+
+void Platform::SetLED(uint8_t r, uint8_t g, uint8_t b)
 {
 
 }
 
-void FillScreen(uint8_t colour)
+void Platform::FillScreen(uint8_t colour)
 {
 	for (int y = 0; y < DISPLAY_HEIGHT; y++)
 	{
@@ -55,8 +141,42 @@ void FillScreen(uint8_t colour)
 	}
 }
 
-void DrawSprite(int16_t x, int16_t y, const uint8_t *bitmap,
-	const uint8_t *mask, uint8_t frame, uint8_t mask_frame)
+void Platform::DrawSprite(int16_t x, int16_t y, const uint8_t *bitmap, uint8_t frame)
+{
+	uint8_t w = bitmap[0];
+	uint8_t h = bitmap[1];
+
+	bitmap += 2;
+
+	for (int j = 0; j < h; j++)
+	{
+		for (int i = 0; i < w; i++)
+		{
+			int blockY = j / 8;
+			int blockIndex = (w * blockY + i) * 2;
+			uint8_t pixels = bitmap[blockIndex];
+			uint8_t maskPixels = bitmap[blockIndex + 1];
+			uint8_t bitmask = 1 << (j % 8);
+
+			if (maskPixels & bitmask)
+			{
+				if (x + i >= 0 && y + j >= 0)
+				{
+					if (pixels & bitmask)
+					{
+						PutPixel(x + i, y + j, 1);
+					}
+					else
+					{
+						PutPixel(x + i, y + j, 0);
+					}
+				}
+			}
+		}
+	}
+}
+
+void Platform::DrawSprite(int16_t x, int16_t y, const uint8_t *bitmap, const uint8_t *mask, uint8_t frame, uint8_t mask_frame)
 {
 	uint8_t w = bitmap[0];
 	uint8_t h = bitmap[1];
@@ -89,10 +209,9 @@ void DrawSprite(int16_t x, int16_t y, const uint8_t *bitmap,
 			}
 		}
 	}
-
 }
 
-void DrawVLine(uint8_t x, int8_t y1, int8_t y2, uint8_t pattern)
+void Platform::DrawVLine(uint8_t x, int8_t y1, int8_t y2, uint8_t pattern)
 {
 	for (int y = y1; y <= y2; y++)
 	{
@@ -152,7 +271,7 @@ void DrawVLine(uint8_t x, int8_t y0_, int8_t y1_, uint8_t pattern)
 }
 */
 
-void PutPixel(uint8_t x, uint8_t y, uint8_t colour)
+void Platform::PutPixel(uint8_t x, uint8_t y, uint8_t colour)
 {
 	if (x >= DISPLAY_WIDTH || y >= DISPLAY_HEIGHT)
 	{
@@ -176,7 +295,7 @@ uint8_t GetPixel(uint8_t x, uint8_t y)
 	return (sBuffer[(row*DISPLAY_WIDTH) + x] & (1 << bit_position)) >> bit_position;
 }
 
-uint8_t* GetScreenBuffer()
+uint8_t* Platform::GetScreenBuffer()
 {
 	return sBuffer;
 }
@@ -216,7 +335,7 @@ void PutPixelImmediate(uint8_t x, uint8_t y, uint8_t colour)
 	*(Uint32 *)p = col;
 }
 
-void DrawBitmap(const uint8_t* data, uint16_t x, uint16_t y, uint8_t w, uint8_t h)
+void DrawBitmapInternal(const uint8_t* data, uint16_t x, uint16_t y, uint8_t w, uint8_t h)
 {
 	for (int j = 0; j < h; j++)
 	{
@@ -232,28 +351,28 @@ void DrawBitmap(const uint8_t* data, uint16_t x, uint16_t y, uint8_t w, uint8_t 
 			{
 				if (pixels & mask)
 				{
-					PutPixel(x + i, y + j, 1);
+					Platform::PutPixel(x + i, y + j, 1);
 				}
 				else
 				{
-					PutPixel(x + i, y + j, 0);
+					Platform::PutPixel(x + i, y + j, 0);
 				}
 			}
 		}
 	}
 }
 
-void DrawBitmap(int16_t x, int16_t y, const uint8_t *bitmap)
+void Platform::DrawBitmap(int16_t x, int16_t y, const uint8_t *bitmap)
 {
-	DrawBitmap(bitmap + 2, x, y, bitmap[0], bitmap[1]);
+	DrawBitmapInternal(bitmap + 2, x, y, bitmap[0], bitmap[1]);
 }
 
-void DrawSolidBitmap(int16_t x, int16_t y, const uint8_t *bitmap)
+void Platform::DrawSolidBitmap(int16_t x, int16_t y, const uint8_t *bitmap)
 {
-	DrawBitmap(bitmap + 2, x, y, bitmap[0], bitmap[1]);
+	DrawBitmapInternal(bitmap + 2, x, y, bitmap[0], bitmap[1]);
 }
 
-void DrawBackground()
+void Platform::DrawBackground()
 {
 	for (int y = 0; y < DISPLAY_HEIGHT; y++)
 	{
@@ -266,7 +385,22 @@ void DrawBackground()
 	}
 }
 
-uint8_t GetInput()
+void Platform::PlaySound(const uint16_t* audioPattern)
+{
+	Play(audioPattern);
+}
+
+bool Platform::IsAudioEnabled()
+{
+	return isAudioEnabled;
+}
+
+void Platform::SetAudioEnabled(bool isEnabled)
+{
+	isAudioEnabled = isEnabled;
+}
+
+uint8_t Platform::GetInput()
 {
 	uint8_t inputMask = 0;
 
@@ -282,6 +416,50 @@ uint8_t GetInput()
 
 	return inputMask;
 }
+
+void Platform::ExpectLoadDelay()
+{
+
+}
+
+/*#include "Font.h"
+void DumpFont()
+{
+	constexpr int numChars = 96;
+	constexpr int charWidth = 4;
+	constexpr int charHeight = 8;
+	constexpr int pageWidth = numChars * charWidth;
+	uint8_t fontPage[pageWidth * charHeight * 4];
+	char tempStr[2] = { 0, 0 };
+
+	for (int n = 0; n < numChars * charWidth * charHeight * 4; n++)
+	{
+		fontPage[n] = 255;
+	}
+
+	for (int n = 0; n < numChars; n++)
+	{
+		Platform::FillScreen(COLOUR_WHITE);
+		tempStr[0] = (char) (n + 32);
+		DrawString(tempStr, 0, 1);
+
+		for (int y = 0; y < charHeight; y++)
+		{
+			for (int x = 0; x < charWidth; x++)
+			{
+				if (GetPixel(x, y) == COLOUR_BLACK)
+				{
+					int index = pageWidth * y + (n * charWidth) + x;
+					fontPage[index * 4] = 0;
+					fontPage[index * 4 + 1] = 0;
+					fontPage[index * 4 + 2] = 0;
+				}
+			}
+		}
+	}
+
+	lodepng::encode("font.png", fontPage, pageWidth, charHeight);
+}*/
 
 void DebugDisplayNow()
 {
@@ -317,11 +495,27 @@ int main(int argc, char* argv[])
 
 	SDL_SetWindowPosition(AppWindow, 1900 - DISPLAY_WIDTH * 2, 1020 - DISPLAY_HEIGHT);
 
-	SeedRandom((uint16_t)time(nullptr));
-	InitGame();
+	SDL_AudioSpec wanted;
+	wanted.freq = audioSampleRate;
+	wanted.format = AUDIO_U8;
+	wanted.channels = 1;
+	wanted.samples = 4096;
+	wanted.callback = FillAudioBuffer;
+
+	if (SDL_OpenAudio(&wanted, NULL) <0) {
+		printf("Error: %s\n", SDL_GetError());
+	}
+	SDL_PauseAudio(0);
+	
+	//DumpFont();
+
+	//SeedRandom((uint16_t)time(nullptr));
+	SeedRandom(0);
+	Game::Init();
 	
 	bool running = true;
 	int playRate = 1;
+	static int testAudio = 0;
 
 	while (running)
 	{
@@ -339,9 +533,24 @@ int main(int argc, char* argv[])
 				case SDLK_ESCAPE:
 					running = false;
 					break;
+				case SDLK_i:
+					testAudio--;
+					if(testAudio < 0)
+						testAudio = NUM_AUDIO_PATTERNS - 1;
+					Play(Data_AudioPatterns[testAudio]);
+					break;
+				case SDLK_o:
+					testAudio++;
+					if(testAudio >= NUM_AUDIO_PATTERNS)
+						testAudio = 0;
+					Play(Data_AudioPatterns[testAudio]);
+					break;
+				case SDLK_p:
+					Play(Data_AudioPatterns[testAudio]);
+					break;
 				case SDLK_TAB:
 					playRate = 10;
-					GenerateMap();
+					MapGenerator::Generate();
 					break;
 				case SDLK_F12:
 					{
@@ -367,9 +576,9 @@ int main(int argc, char* argv[])
 		{
 			memset(ScreenSurface->pixels, 0, ScreenSurface->format->BytesPerPixel * ScreenSurface->w * ScreenSurface->h);
 			
-			TickGame();
-			Renderer::Render();
-			DrawMap();
+			Game::Tick();
+			Game::Draw();
+			//Map::DebugDraw();
 			
 			ResolveScreen(ScreenSurface);
 		}

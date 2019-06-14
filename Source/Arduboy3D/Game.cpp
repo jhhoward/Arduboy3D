@@ -5,211 +5,171 @@
 #include "Map.h"
 #include "Projectile.h"
 #include "Particle.h"
+#include "MapGenerator.h"
+#include "Platform.h"
+#include "Entity.h"
+#include "Enemy.h"
+#include "Menu.h"
 
-#define USE_ROTATE_BOB 0
-#define STRAFE_TILT 14
-#define ROTATE_TILT 3
+Player Game::player;
+const char* Game::displayMessage = nullptr;
+uint8_t Game::displayMessageTime = 0;
+Game::State Game::state = Game::State::Menu;
+uint8_t Game::floor = 1;
+uint8_t Game::globalTickFrame = 0;
+Stats Game::stats;
+Menu Game::menu;
 
-int16_t cameraVelocityX;
-int16_t cameraVelocityY;
-
-void InitGame()
+void Game::Init()
 {
-	GenerateMap();
-
-	camera.x = CELL_SIZE * 1 + CELL_SIZE / 2;
-	camera.y = CELL_SIZE * 1 + CELL_SIZE / 2;
+	menu.Init();
+	ParticleSystemManager::Init();
+	ProjectileManager::Init();
+	EnemyManager::Init();
 }
 
-int8_t cameraAngularVelocity = 0;
-
-#define COLLISION_SIZE 48
-
-bool IsObjectColliding(Camera* obj)
+void Game::StartGame()
 {
-	return IsBlockedAtWorldPosition(obj->x - COLLISION_SIZE, obj->y - COLLISION_SIZE)
-		|| IsBlockedAtWorldPosition(obj->x + COLLISION_SIZE, obj->y - COLLISION_SIZE)
-		|| IsBlockedAtWorldPosition(obj->x + COLLISION_SIZE, obj->y + COLLISION_SIZE)
-		|| IsBlockedAtWorldPosition(obj->x - COLLISION_SIZE, obj->y + COLLISION_SIZE);
+	floor = 1;
+	stats.Reset();
+	player.Init();
+	SwitchState(State::EnteringLevel);
 }
 
-void MoveCamera(Camera* entity, int16_t deltaX, int16_t deltaY)
+void Game::SwitchState(State newState)
 {
-	entity->x += deltaX;
-	entity->y += deltaY;
-
-	
-	if (IsObjectColliding(entity))
+	if(state != newState)
 	{
-		entity->y -= deltaY;
-		if (IsObjectColliding(entity))
-		{
-			entity->x -= deltaX;
-			entity->y += deltaY;
-
-			if (IsObjectColliding(entity))
-			{
-				entity->y -= deltaY;
-			}
-		}
+		state = newState;
+		menu.ResetTimer();
 	}
-	
-
-
 }
 
-uint8_t shakeTime = 0;
-uint8_t reloadTime = 0;
-
-void TickGame()
+void Game::ShowMessage(const char* message)
 {
-	uint8_t input = GetInput();
-	int8_t turnDelta = 0;
-	int8_t targetTilt = 0;
-	int8_t moveDelta = 0;
-	int8_t strafeDelta = 0;
+	constexpr uint8_t messageDisplayTime = 90;
 
-	if(input & INPUT_A)
+	displayMessage = message;
+	displayMessageTime = messageDisplayTime;
+}
+
+void Game::NextLevel()
+{
+	if (floor == 10)
 	{
-		if (input & INPUT_LEFT)
-		{
-			strafeDelta--;
-		}
-		if (input & INPUT_RIGHT)
-		{
-			strafeDelta++;
-		}
+		GameOver();
 	}
 	else
 	{
-		if (input & INPUT_LEFT)
+		floor++;
+		SwitchState(State::EnteringLevel);
+	}
+}
+
+void Game::StartLevel()
+{
+	ParticleSystemManager::Init();
+	ProjectileManager::Init();
+	EnemyManager::Init();
+	MapGenerator::Generate();
+	EnemyManager::SpawnEnemies();
+
+	player.NextLevel();
+
+	Platform::ExpectLoadDelay();
+	SwitchState(State::InGame);
+}
+
+void Game::Draw()
+{
+	switch(state)
+	{
+		case State::Menu:
+			menu.Draw();
+			break;
+		case State::EnteringLevel:
+			menu.DrawEnteringLevel();
+			break;
+		case State::InGame:
 		{
-			turnDelta -= TURN_SPEED * 2;
+			Renderer::camera.x = player.x;
+			Renderer::camera.y = player.y;
+			Renderer::camera.angle = player.angle;
+
+			Renderer::Render();
 		}
-		if (input & INPUT_RIGHT)
-		{
-			turnDelta += TURN_SPEED * 2;
-		}
+			break;
+		case State::GameOver:
+			menu.DrawGameOver();
+			break;
+		case State::FadeOut:
+			menu.FadeOut();
+			break;
 	}
+}
 
-	// Testing shooting / recoil mechanic
-	
-	if (reloadTime > 0)
+void Game::TickInGame()
+{
+	if (displayMessageTime > 0)
 	{
-		reloadTime--;
-	}
-	else if (input & INPUT_B)
-	{
-		reloadTime = 13;
-		shakeTime = 8;
-		//if(!moveDelta)
-		//	moveDelta -= 5;
-		
-		int16_t projectileX = camera.x + FixedCos(camera.angle + FIXED_ANGLE_90 / 2) / 4;
-		int16_t projectileY = camera.y + FixedSin(camera.angle + FIXED_ANGLE_90 / 2) / 4;
-		
-		ProjectileManager::FireProjectile(projectileX, projectileY, camera.angle);
-	}
-	
-
-	if (cameraAngularVelocity < turnDelta)
-	{
-		cameraAngularVelocity++;
-	}
-	else if (cameraAngularVelocity > turnDelta)
-	{
-		cameraAngularVelocity--;
+		displayMessageTime--;
+		if (displayMessageTime == 0)
+			displayMessage = nullptr;
 	}
 
-	camera.angle += cameraAngularVelocity >> 1;
+	player.Tick();
 
-	if (input & INPUT_UP)
-	{
-		moveDelta++;
-	}
-	if (input & INPUT_DOWN)
-	{
-		moveDelta--;
-	}
-
-	static int tiltTimer = 0;
-	tiltTimer++;
-	if (moveDelta && USE_ROTATE_BOB)
-	{
-		targetTilt = (int8_t)(FixedSin(tiltTimer * 10) / 32);
-	}
-	else
-	{
-		targetTilt = 0;
-	}
-
-	targetTilt += cameraAngularVelocity * ROTATE_TILT;
-	targetTilt += strafeDelta * STRAFE_TILT;
-	int8_t targetBob = moveDelta || strafeDelta ? FixedSin(tiltTimer * 10) / 128 : 0;
-
-	if (shakeTime > 0)
-	{
-		shakeTime--;
-		targetBob += (Random() & 3) - 1;
-		targetTilt += (Random() & 31) - 16;
-	}
-
-	constexpr int tiltRate = 6;
-
-	if (camera.tilt < targetTilt)
-	{
-		camera.tilt += tiltRate;
-		if (camera.tilt > targetTilt)
-		{
-			camera.tilt = targetTilt;
-		}
-	}
-	else if (camera.tilt > targetTilt)
-	{
-		camera.tilt -= tiltRate;
-		if (camera.tilt < targetTilt)
-		{
-			camera.tilt = targetTilt;
-		}
-	}
-
-	constexpr int bobRate = 3;
-
-	if (camera.bob < targetBob)
-	{
-		camera.bob += bobRate;
-		if (camera.bob > targetBob)
-		{
-			camera.bob = targetBob;
-		}
-	}
-	else if (camera.bob > targetBob)
-	{
-		camera.bob -= bobRate;
-		if (camera.bob < targetBob)
-		{
-			camera.bob = targetBob;
-		}
-	}
-
-	int16_t cosAngle = FixedCos(camera.angle);
-	int16_t sinAngle = FixedSin(camera.angle);
-
-	int16_t cos90Angle = FixedCos(camera.angle + FIXED_ANGLE_90);
-	int16_t sin90Angle = FixedSin(camera.angle + FIXED_ANGLE_90);
-	//camera.x += (moveDelta * cosAngle) >> 4;
-	//camera.y += (moveDelta * sinAngle) >> 4;
-	cameraVelocityX += (moveDelta * cosAngle) / 24;
-	cameraVelocityY += (moveDelta * sinAngle) / 24;
-
-	cameraVelocityX += (strafeDelta * cos90Angle) / 24;
-	cameraVelocityY += (strafeDelta * sin90Angle) / 24;
-	
-	MoveCamera(&camera, cameraVelocityX / 4, cameraVelocityY / 4);
-
-	cameraVelocityX = (cameraVelocityX * 7) / 8;
-	cameraVelocityY = (cameraVelocityY * 7) / 8;
-	
 	ProjectileManager::Update();
 	ParticleSystemManager::Update();
+	EnemyManager::Update();
+
+	if (Map::GetCellSafe(player.x / CELL_SIZE, player.y / CELL_SIZE) == CellType::Exit)
+	{
+		NextLevel();
+	}
+	
+	if (player.hp == 0)
+	{
+		GameOver();
+	}
+}
+
+void Game::Tick()
+{
+	globalTickFrame++;
+
+	switch(state)
+	{
+		case State::InGame:
+			TickInGame();
+			return;
+		case State::EnteringLevel:
+			menu.TickEnteringLevel();
+			return;
+		case State::Menu:
+			menu.Tick();
+			return;
+		case State::GameOver:
+			menu.TickGameOver();
+			return;
+	}
+}
+
+void Game::GameOver()
+{
+	SwitchState(State::FadeOut);
+}
+
+void Stats::Reset()
+{
+	killedBy = EnemyType::None;
+	chestsOpened = 0;
+	coinsCollected = 0;
+	crownsCollected = 0;
+	scrollsCollected = 0;
+
+	for (uint8_t& killCounter : enemyKills)
+	{
+		killCounter = 0;
+	}
 }

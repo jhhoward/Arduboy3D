@@ -6,6 +6,9 @@
 #include "FixedMath.h"
 #include "Map.h"
 #include "Projectile.h"
+#include "Platform.h"
+#include "Enemy.h"
+#include "Font.h"
 
 #include "LUT.h"
 #include "Generated/SpriteData.inc.h"
@@ -20,11 +23,10 @@
 #define DrawScaledInner DrawScaledNoOutline
 #endif
 
-Camera camera;
-
+Camera Renderer::camera;
 uint8_t Renderer::wBuffer[DISPLAY_WIDTH];
 int8_t Renderer::horizonBuffer[DISPLAY_WIDTH];
-uint8_t Renderer::globalAnimationFrame = 0;
+uint8_t Renderer::globalRenderFrame = 0;
 uint8_t Renderer::numBufferSlicesFilled = 0;
 QueuedDrawable Renderer::queuedDrawables[MAX_QUEUED_DRAWABLES];
 uint8_t Renderer::numQueuedDrawables = 0;
@@ -116,7 +118,7 @@ void Renderer::DrawWallLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint
 	{
 		int8_t horizon = horizonBuffer[x] - HORIZON;		
 
-		PutPixel(x, horizon + y, col);
+		Platform::PutPixel(x, horizon + y, col);
 
 		yerror -= dy;
 
@@ -131,7 +133,7 @@ void Renderer::DrawWallLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint
 
 			if (yerror < 0)
 			{
-				PutPixel(x, horizon + y, col);
+				Platform::PutPixel(x, horizon + y, col);
 			}
 
 			if (x == x2 && y == y2)
@@ -226,7 +228,7 @@ void Renderer::DrawWallSegment(int16_t x1, int16_t w1, int16_t x2, int16_t w2, b
 
 					if ((textureData & mask) == 0)
 					{
-						PutPixel(x, y, 0);
+						Platform::PutPixel(x, y, 0);
 					}
 
 					wallPos++;
@@ -234,9 +236,9 @@ void Renderer::DrawWallSegment(int16_t x1, int16_t w1, int16_t x2, int16_t w2, b
 			}
 #else
 			int8_t extent = w > 64 ? 64 : w;
-			DrawVLine(x, horizon - extent, horizon + extent, sliceMask);
-			PutPixel(x, horizon + extent, edgeColour);
-			PutPixel(x, horizon - extent, edgeColour);
+			Platform::DrawVLine(x, horizon - extent, horizon + extent, sliceMask);
+			Platform::PutPixel(x, horizon + extent, edgeColour);
+			Platform::PutPixel(x, horizon - extent, edgeColour);
 #endif
 			
 			if(wBuffer[x] == 0)
@@ -274,8 +276,8 @@ void Renderer::DrawWallSegment(int16_t x1, int16_t w1, int16_t x2, int16_t w2, b
 
 			if (drawSlice && werror < 0 && w <= DISPLAY_HEIGHT / 2)
 			{
-				PutPixel(x, horizon + w - 1, edgeColour);
-				PutPixel(x, horizon - w, edgeColour);
+				Platform::PutPixel(x, horizon + w - 1, edgeColour);
+				Platform::PutPixel(x, horizon - w, edgeColour);
 			}
 		}
 		
@@ -445,36 +447,205 @@ void Renderer::DrawWall(int16_t x1, int16_t y1, int16_t x2, int16_t y2, bool edg
 #endif
 }
 
-void Renderer::DrawCell(uint8_t x, uint8_t y)
+void swap(int16_t& a, int16_t& b)
 {
-	uint8_t cellType = GetMapCellSafe(x, y);
+	int16_t temp = a;
+	a = b;
+	b = temp;
+}
+
+void Renderer::DrawFloorLineInner(int16_t x0, int16_t y0, int16_t x1, int16_t y1)
+{
+	uint8_t color = COLOUR_BLACK;
 	
-	switch(cellType)
+	bool steep = ABS(y1 - y0) > ABS(x1 - x0);
+	if (steep) 
 	{
-		case 2:
-		DrawObject(skeletonSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2);
-		return;
-		case 3:
+		swap(x0, y0);
+		swap(x1, y1);
+	}
+
+	if (x0 > x1) 
+	{
+		swap(x0, x1);
+		swap(y0, y1);
+	}
+
+	int16_t dx, dy;
+	dx = x1 - x0;
+	dy = ABS(y1 - y0);
+
+	int16_t err = dx / 2;
+	int8_t ystep;
+
+	if (y0 < y1)
+	{
+		ystep = 1;
+	}
+	else
+	{
+		ystep = -1;
+	}
+
+	for (; x0 <= x1; x0++)
+	{
+		if(steep)
 		{
-			const uint16_t* torchSpriteData = globalAnimationFrame & 4 ? torchSpriteData1 : torchSpriteData2;
-			
-			if(GetMapCellSafe(x - 1, y) == 1)
+			if(y0 >= 0 && y0 < DISPLAY_WIDTH && x0 >= 0 && x0 < DISPLAY_HEIGHT && x0 > GetHorizon(y0) + wBuffer[y0] && x0 > GetHorizon(y0) + 8)
 			{
-				DrawObject(torchSpriteData, x * CELL_SIZE + CELL_SIZE / 7, y * CELL_SIZE + CELL_SIZE / 2);
-			}
-			else if(GetMapCellSafe(x + 1, y) == 1)
-			{
-				DrawObject(torchSpriteData, x * CELL_SIZE + 6 * CELL_SIZE / 7, y * CELL_SIZE + CELL_SIZE / 2);
-			}
-			else if(GetMapCellSafe(x, y - 1) == 1)
-			{
-				DrawObject(torchSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 7);
-			}
-			else if(GetMapCellSafe(x, y + 1) == 1)
-			{
-				DrawObject(torchSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + 6 * CELL_SIZE / 7);
+				Platform::PutPixel((uint8_t)y0, (uint8_t)x0 + horizonBuffer[y0] - HORIZON, color);
 			}
 		}
+		else
+		{
+			if(x0 >= 0 && x0 < DISPLAY_WIDTH && y0 >= 0 && y0 < DISPLAY_HEIGHT && y0 > GetHorizon(x0) + wBuffer[x0] && y0 > GetHorizon(x0) + 8)
+			{
+				Platform::PutPixel((uint8_t)x0, (uint8_t)y0 + horizonBuffer[x0] - HORIZON, color);
+			}
+		}
+
+		err -= dy;
+		if (err < 0)
+		{
+			y0 += ystep;
+			err += dx;
+		}
+	}
+}
+
+void Renderer::DrawFloorLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2)
+{
+	int16_t viewX1, viewZ1, viewX2, viewZ2;
+
+	TransformToViewSpace(x1, y1, viewX1, viewZ1);
+	TransformToViewSpace(x2, y2, viewX2, viewZ2);
+	
+	//if(viewX1 > viewX2)
+	//{
+	//	swap(viewX1, viewX2);
+	//	swap(viewZ1, viewZ2);
+	//}
+
+	// Frustum cull
+//	if (viewX2 < 0 && -2 * viewZ2 > viewX2)
+//		return;
+//	if (viewX1 > 0 && 2 * viewZ1 < viewX1)
+//		return;
+
+	// clip to the front pane
+	if ((viewZ1 < CLIP_PLANE) && (viewZ2 < CLIP_PLANE))
+		return;
+
+	if (viewZ1 < CLIP_PLANE)
+	{
+		viewX1 += (CLIP_PLANE - viewZ1) * (viewX2 - viewX1) / (viewZ2 - viewZ1);
+		viewZ1 = CLIP_PLANE;
+	}
+	else if (viewZ2 < CLIP_PLANE)
+	{
+		viewX2 += (CLIP_PLANE - viewZ2) * (viewX1 - viewX2) / (viewZ1 - viewZ2);
+		viewZ2 = CLIP_PLANE;
+	}
+
+	// apply perspective projection
+	int16_t vx1 = (int16_t)((int32_t)viewX1 * NEAR_PLANE * CAMERA_SCALE / viewZ1);
+	int16_t vx2 = (int16_t)((int32_t)viewX2 * NEAR_PLANE * CAMERA_SCALE / viewZ2);
+
+	// transform the end points into screen space
+	int16_t sx1 = (int16_t)((DISPLAY_WIDTH / 2) + vx1);
+	int16_t sx2 = (int16_t)((DISPLAY_WIDTH / 2) + vx2) - 1;
+
+	//if (sx2 <= 0 || sx1 >= DISPLAY_WIDTH)
+	//	return;
+
+	int16_t w1 = (int16_t)((CELL_SIZE / 2 * NEAR_PLANE * CAMERA_SCALE) / viewZ1);
+	int16_t w2 = (int16_t)((CELL_SIZE / 2 * NEAR_PLANE * CAMERA_SCALE) / viewZ2);
+
+	DrawFloorLineInner(sx1, HORIZON + w1, sx2, HORIZON + w2);
+}
+
+void Renderer::DrawFloorLines()
+{
+	constexpr int size = 10;
+	int16_t baseX = (Game::player.x - CELL_SIZE * size / 2) & 0xff00;
+	int16_t baseY = (Game::player.y - CELL_SIZE * size / 2) & 0xff00;
+	
+	for(int n = 0; n < 10; n++)
+	{
+		DrawFloorLine(baseX, baseY + n * CELL_SIZE, baseX + CELL_SIZE * 10 - n * CELL_SIZE, baseY + CELL_SIZE * 10);
+		DrawFloorLine(baseX, baseY + n * CELL_SIZE, baseX + n * CELL_SIZE, baseY);
+	}
+	
+	for(int n = 1; n < 10; n++)
+	{
+		DrawFloorLine(baseX + n * CELL_SIZE, baseY, baseX + CELL_SIZE * 10, baseY + CELL_SIZE * 10 - n * CELL_SIZE);
+		DrawFloorLine(baseX + n * CELL_SIZE, baseY + 10 * CELL_SIZE, baseX + 10 * CELL_SIZE, baseY + n * CELL_SIZE);
+	}
+}
+
+void Renderer::DrawCell(uint8_t x, uint8_t y)
+{
+	CellType cellType = Map::GetCellSafe(x, y);
+
+	if (isFrustrumClipped(x, y))
+	{
+		return;
+	}
+
+	switch (cellType)
+	{
+	case CellType::Torch:
+	{
+		const uint16_t* torchSpriteData = Game::globalTickFrame & 4 ? torchSpriteData1 : torchSpriteData2;
+		constexpr uint8_t torchScale = 75;
+
+		if (Map::IsSolid(x - 1, y))
+		{
+			DrawObject(torchSpriteData, x * CELL_SIZE + CELL_SIZE / 7, y * CELL_SIZE + CELL_SIZE / 2, torchScale, AnchorType::Center);
+		}
+		else if (Map::IsSolid(x + 1, y))
+		{
+			DrawObject(torchSpriteData, x * CELL_SIZE + 6 * CELL_SIZE / 7, y * CELL_SIZE + CELL_SIZE / 2, torchScale, AnchorType::Center);
+		}
+		else if (Map::IsSolid(x, y - 1))
+		{
+			DrawObject(torchSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 7, torchScale, AnchorType::Center);
+		}
+		else if (Map::IsSolid(x, y + 1))
+		{
+			DrawObject(torchSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + 6 * CELL_SIZE / 7, torchScale, AnchorType::Center);
+		}
+	}
+	return;
+	case CellType::Entrance:
+		DrawObject(entranceSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 96, AnchorType::Ceiling);
+		return;
+	case CellType::Exit:
+		DrawObject(exitSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 96);
+		return;
+	case CellType::Urn:
+		DrawObject(urnSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 80);
+		return;
+	case CellType::Potion:
+		DrawObject(potionSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 64);
+		return;
+	case CellType::Scroll:
+		DrawObject(scrollSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 64);
+		return;
+	case CellType::Coins:
+		DrawObject(coinsSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 64);
+		return;
+	case CellType::Crown:
+		DrawObject(crownSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 64);
+		return;
+	case CellType::Sign:
+		DrawObject(signSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 80);
+		return;
+	case CellType::Chest:
+		DrawObject(chestSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 75);
+		return;
+	case CellType::ChestOpened:
+		DrawObject(chestOpenSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 75);
 		return;
 	}
 
@@ -483,12 +654,7 @@ void Renderer::DrawCell(uint8_t x, uint8_t y)
 		return;
 	}
 
-	if (isFrustrumClipped(x, y))
-	{
-		return;
-	}
-
-	if (!IsSolid(x, y))
+	if (!Map::IsSolid(x, y))
 	{
 		return;
 	}
@@ -498,16 +664,15 @@ void Renderer::DrawCell(uint8_t x, uint8_t y)
 	int16_t x2 = x1 + CELL_SIZE;
 	int16_t y2 = y1 + CELL_SIZE;
 
-	bool blockedLeft = IsSolid(x - 1, y);
-	bool blockedRight = IsSolid(x + 1, y);
-	bool blockedUp = IsSolid(x, y - 1);
-	bool blockedDown = IsSolid(x, y + 1);
+	bool blockedLeft = Map::IsSolid(x - 1, y);
+	bool blockedRight = Map::IsSolid(x + 1, y);
+	bool blockedUp = Map::IsSolid(x, y - 1);
+	bool blockedDown = Map::IsSolid(x, y + 1);
 
 #if WITH_IMAGE_TEXTURES
 	const uint16_t* texture = wallTextureData + (16 * (cellType - 1));
 #elif WITH_VECTOR_TEXTURES
-	const uint8_t* texture = (const uint8_t*) pgm_read_ptr(&textures[cellType - 1]);
-//	texture = nullptr;
+	const uint8_t* texture = vectorTexture0; // (const uint8_t*) pgm_read_ptr(&textures[(uint8_t)cellType - (uint8_t)CellType::FirstSolidCell]);
 #endif
 
 	if (!blockedLeft && camera.x < x1)
@@ -562,10 +727,10 @@ void Renderer::DrawCells()
 		bufferX = 0;
 	if(bufferY < 0)
 		bufferY = 0;
-	if(bufferX > MAP_WIDTH - MAP_BUFFER_WIDTH)
-		bufferX = MAP_WIDTH - MAP_BUFFER_WIDTH;
-	if(bufferY > MAP_HEIGHT - MAP_BUFFER_HEIGHT)
-		bufferY = MAP_HEIGHT - MAP_BUFFER_HEIGHT;
+	if(bufferX > Map::width - MAP_BUFFER_WIDTH)
+		bufferX = Map::width - MAP_BUFFER_WIDTH;
+	if(bufferY > Map::height - MAP_BUFFER_HEIGHT)
+		bufferY = Map::height - MAP_BUFFER_HEIGHT;
 	
 	// This should make cells draw front to back
 	
@@ -619,11 +784,10 @@ void Renderer::DrawCells()
 	}	
 }
 
-template<int scaleMultiplier>
-inline void DrawScaledOutline(const uint16_t* data, int8_t x, int8_t y, uint8_t halfSize, uint8_t inverseCameraDistance)
+void DrawScaledOutline(const uint16_t* data, int8_t x, int8_t y, uint8_t halfSize, uint8_t inverseCameraDistance, uint8_t shiftAmount, bool invert)
 {
 	uint8_t size = 2 * halfSize;
-	const uint8_t* lut = scaleLUT + ((halfSize / scaleMultiplier) * (halfSize / scaleMultiplier));
+	const uint8_t* lut = scaleLUT + (((halfSize - 1) >> shiftAmount) * ((halfSize - 1) >> shiftAmount));
 
 	uint8_t i0 = x < 0 ? -x : 0;
 	uint8_t i1 = x + size > DISPLAY_WIDTH ? DISPLAY_WIDTH - x : size;
@@ -631,6 +795,7 @@ inline void DrawScaledOutline(const uint16_t* data, int8_t x, int8_t y, uint8_t 
 	uint8_t j1 = y + size > DISPLAY_HEIGHT ? DISPLAY_HEIGHT - y : size;
 
 	int8_t outX = x >= 0 ? x : 0;
+	uint16_t invertMask = invert ? 0xffff : 0;
 	
 	uint16_t leftTransparencyAndColourColumn = 0;
 	uint16_t middleTransparencyColumn = 0;
@@ -645,31 +810,51 @@ inline void DrawScaledOutline(const uint16_t* data, int8_t x, int8_t y, uint8_t 
 
 		if (isVisible)
 		{
-			const uint8_t u = pgm_read_byte(&lut[i / scaleMultiplier]);
 			uint16_t leftRightOutlineColumn = 0;
-			
-			if(wasVisible)
+
+			if(i >= i1 - 2)
 			{
-				leftTransparencyAndColourColumn = middleColourColumn & middleTransparencyColumn;		
-				middleColourColumn = rightColourColumn;
-				middleTransparencyColumn = rightTransparencyColumn;
-				rightTransparencyColumn = pgm_read_word(&data[u * 2]);
-				rightColourColumn = pgm_read_word(&data[u * 2 + 1]);
-				leftRightOutlineColumn = leftTransparencyAndColourColumn | (rightColourColumn | rightTransparencyColumn);
+				if (wasVisible)
+				{
+					leftTransparencyAndColourColumn = middleColourColumn & middleTransparencyColumn;
+					middleColourColumn = rightColourColumn;
+					middleTransparencyColumn = rightTransparencyColumn;
+					rightTransparencyColumn = 0;
+					rightColourColumn = 0;
+					leftRightOutlineColumn = leftTransparencyAndColourColumn;
+				}
+				else
+				{
+					break;
+				}
 			}
 			else
 			{
-				leftTransparencyAndColourColumn = 0;		
-				rightTransparencyColumn = pgm_read_word(&data[u * 2]);
-				rightColourColumn = pgm_read_word(&data[u * 2 + 1]);
-				middleColourColumn = rightColourColumn;
-				middleTransparencyColumn = rightTransparencyColumn;
-				leftRightOutlineColumn = (rightColourColumn | rightTransparencyColumn);
+				const uint8_t u = pgm_read_byte(&lut[i >> shiftAmount]);
+
+				if (wasVisible)
+				{
+					leftTransparencyAndColourColumn = middleColourColumn & middleTransparencyColumn;
+					middleColourColumn = rightColourColumn;
+					middleTransparencyColumn = rightTransparencyColumn;
+					rightTransparencyColumn = pgm_read_word(&data[u * 2]);
+					rightColourColumn = pgm_read_word(&data[u * 2 + 1]) ^ invertMask;
+					leftRightOutlineColumn = leftTransparencyAndColourColumn | (rightColourColumn & rightTransparencyColumn);
+				}
+				else
+				{
+					leftTransparencyAndColourColumn = 0;
+					rightTransparencyColumn = pgm_read_word(&data[u * 2]);
+					rightColourColumn = pgm_read_word(&data[u * 2 + 1]) ^ invertMask;
+					middleColourColumn = rightColourColumn;
+					middleTransparencyColumn = rightTransparencyColumn;
+					leftRightOutlineColumn = (rightColourColumn & rightTransparencyColumn);
+				}
 			}
 			
 			int8_t outY = y >= 0 ? y : 0;
 			uint8_t bufferPos = (outY & 7);
-			uint8_t* screenBuffer = GetScreenBuffer() + outX + ((outY & 0x38) << 4);
+			uint8_t* screenBuffer = Platform::GetScreenBuffer() + outX + ((outY & 0x38) << 4);
 			uint8_t localBuffer = *screenBuffer;
 			uint8_t writeMask = pgm_read_byte(&scaleDrawWriteMasks[bufferPos]);
 			
@@ -678,55 +863,64 @@ inline void DrawScaledOutline(const uint16_t* data, int8_t x, int8_t y, uint8_t 
 			bool downIsOpaque = false;
 			bool middleIsWhite = false;
 			bool downIsWhite = false;
+			bool leftOrRightIsOutline = false;
+			bool downLeftOrRightIsOutline = false;
 			
-			for (uint8_t j = j0; j < j1; j += scaleMultiplier)
+			for (uint8_t j = j0; j < j1; j++)
 			{
-				uint8_t v = pgm_read_byte(&lut[j / scaleMultiplier]);
-				uint16_t mask = pgm_read_word(&scaleDrawReadMasks[v]);
+				upIsOpaqueAndWhite = middleIsOpaque && middleIsWhite;
+				middleIsOpaque = downIsOpaque;
+				middleIsWhite = downIsWhite;
+				leftOrRightIsOutline = downLeftOrRightIsOutline;
 
-				bool leftOrRightIsOutline = (leftRightOutlineColumn & mask) != 0;
-
-				for(uint8_t k = 0; k < scaleMultiplier; k++)
+				if(j >= j1 - 2)
 				{
-					upIsOpaqueAndWhite = middleIsOpaque && middleIsWhite;
-					middleIsOpaque = downIsOpaque;
-					middleIsWhite = downIsWhite;
-					downIsOpaque = (middleTransparencyColumn & mask) != 0; 
+					downIsOpaque = false;
+					downIsWhite = false;
+					downLeftOrRightIsOutline = false;
+				}
+				else
+				{
+					uint8_t v = pgm_read_byte(&lut[j >> shiftAmount]);
+					uint16_t mask = pgm_read_word(&scaleDrawReadMasks[v]);
+					downLeftOrRightIsOutline = (leftRightOutlineColumn & mask) != 0;
+					downIsOpaque = (middleTransparencyColumn & mask) != 0;
 					downIsWhite = (middleColourColumn & mask) != 0;
+				}
 					
-					if (middleIsOpaque)
+				if (middleIsOpaque && j < j1)
+				{
+					if(middleIsWhite)
 					{
-						if(middleIsWhite)
-						{
-							localBuffer |= writeMask;
-						}
-						else
-						{
-							localBuffer &= ~writeMask;
-						}
+						localBuffer |= writeMask;
 					}
-					else if(leftOrRightIsOutline || (upIsOpaqueAndWhite) || (downIsOpaque && downIsWhite))
+					else
 					{
 						localBuffer &= ~writeMask;
 					}
-					
-					outY++;
-					bufferPos++;
-					writeMask <<= 1;
-					
-					if(bufferPos == 8)
-					{
-						bufferPos = 0;
-						writeMask = 1;
-						
-						*screenBuffer = localBuffer;
-						if(outY < DISPLAY_HEIGHT)
-						{
-							screenBuffer += 128;
-						}
-						localBuffer = *screenBuffer;
-					}
 				}
+				else if(leftOrRightIsOutline || (upIsOpaqueAndWhite) || (downIsOpaque && downIsWhite))
+				{
+					localBuffer &= ~writeMask;
+				}
+					
+				outY++;
+				bufferPos++;
+				writeMask <<= 1;
+					
+				if(bufferPos == 8)
+				{
+					bufferPos = 0;
+					writeMask = 1;
+						
+					*screenBuffer = localBuffer;
+					if(outY < DISPLAY_HEIGHT)
+					{
+						screenBuffer += 128;
+					}
+					localBuffer = *screenBuffer;
+				}
+				
 			}
 
 			*screenBuffer = localBuffer;
@@ -759,7 +953,7 @@ inline void DrawScaledNoOutline(const uint16_t* data, int8_t x, int8_t y, uint8_
 			const uint8_t u = pgm_read_byte(&lut[i / scaleMultiplier]);
 			int8_t outY = y >= 0 ? y : 0;
 			uint8_t bufferPos = (outY & 7);
-			uint8_t* screenBuffer = GetScreenBuffer() + outX + ((outY & 0x38) << 4);
+			uint8_t* screenBuffer = Platform::GetScreenBuffer() + outX + ((outY & 0x38) << 4);
 			uint8_t localBuffer = *screenBuffer;
 			uint8_t writeMask = pgm_read_byte(&scaleDrawWriteMasks[bufferPos]);
 			uint16_t transparencyColumn = pgm_read_word(&data[u * 2]);
@@ -814,44 +1008,42 @@ inline void DrawScaledNoOutline(const uint16_t* data, int8_t x, int8_t y, uint8_
 	}
 }
 
-void Renderer::DrawScaled(const uint16_t* data, int8_t x, int8_t y, uint8_t halfSize, uint8_t inverseCameraDistance)
+void Renderer::DrawScaled(const uint16_t* data, int8_t x, int8_t y, uint8_t halfSize, uint8_t inverseCameraDistance, bool invert)
 {
-	uint8_t size = 2 * halfSize;
-
-	if (size > MAX_SPRITE_SIZE * 4)
+	if (halfSize > MAX_SPRITE_SIZE * 2)
 	{
 		return;
 	}
-	else if (size > MAX_SPRITE_SIZE * 2)
+	else if (halfSize > MAX_SPRITE_SIZE)
 	{
-		DrawScaledInner<4>(data, x, y, halfSize, inverseCameraDistance);
+		DrawScaledInner(data, x, y, halfSize, inverseCameraDistance, 2, invert);
 	}
-	else if (size > MAX_SPRITE_SIZE)
+	else if (halfSize * 2 > MAX_SPRITE_SIZE)
 	{
-		DrawScaledInner<2>(data, x, y, halfSize, inverseCameraDistance);
+		DrawScaledInner(data, x, y, halfSize, inverseCameraDistance, 1, invert);
 	}
 	else if(halfSize > 2)
 	{
-		DrawScaledInner<1>(data, x, y, halfSize, inverseCameraDistance);
+		DrawScaledInner(data, x, y, halfSize, inverseCameraDistance, 0, invert);
 	}
 	else if (halfSize == 2)
 	{
 		if (Renderer::wBuffer[x] < inverseCameraDistance)
 		{
-			PutPixel(x, y, COLOUR_BLACK);
-			PutPixel(x, y + 1, COLOUR_BLACK);
+			Platform::PutPixel(x, y, COLOUR_BLACK);
+			Platform::PutPixel(x, y + 1, COLOUR_BLACK);
 		}
 		if (Renderer::wBuffer[x + 1] < inverseCameraDistance)
 		{
-			PutPixel(x + 1, y, COLOUR_BLACK);
-			PutPixel(x + 1, y + 1, COLOUR_BLACK);
+			Platform::PutPixel(x + 1, y, COLOUR_BLACK);
+			Platform::PutPixel(x + 1, y + 1, COLOUR_BLACK);
 		}
 	}
 	else
 	{
 		if (Renderer::wBuffer[x] < inverseCameraDistance)
 		{
-			PutPixel(x, y, COLOUR_BLACK);
+			Platform::PutPixel(x, y, COLOUR_BLACK);
 		}
 	}
 }
@@ -864,11 +1056,11 @@ QueuedDrawable* Renderer::CreateQueuedDrawable(uint8_t inverseCameraDistance)
 	{
 		if(inverseCameraDistance < queuedDrawables[n].inverseCameraDistance)
 		{
-			insertionPoint = n;
-			
 			if(numQueuedDrawables < MAX_QUEUED_DRAWABLES)
 			{
+				insertionPoint = n;
 				numQueuedDrawables++;
+				
 				for (uint8_t i = numQueuedDrawables - 1; i > n; i--)
 				{
 					queuedDrawables[i] = queuedDrawables[i - 1];
@@ -876,10 +1068,19 @@ QueuedDrawable* Renderer::CreateQueuedDrawable(uint8_t inverseCameraDistance)
 			}
 			else
 			{
-				for (uint8_t i = 0; i < n; i++)
+				if(n == 0)
+				{
+					// List is full and this is smaller than the first element so just cull
+					return nullptr;
+				}
+				
+				// Drop the smallest element to make a space
+				for (uint8_t i = 0; i < n - 1; i++)
 				{
 					queuedDrawables[i] = queuedDrawables[i + 1];
 				}
+				
+				insertionPoint = n - 1;
 			}
 			
 			break;
@@ -895,6 +1096,7 @@ QueuedDrawable* Renderer::CreateQueuedDrawable(uint8_t inverseCameraDistance)
 		}
 		else if (inverseCameraDistance > queuedDrawables[numQueuedDrawables - 1].inverseCameraDistance)
 		{
+			// Drop the smallest element to make a space
 			for (uint8_t i = 0; i < numQueuedDrawables - 1; i++)
 			{
 				queuedDrawables[i] = queuedDrawables[i + 1];
@@ -910,7 +1112,7 @@ QueuedDrawable* Renderer::CreateQueuedDrawable(uint8_t inverseCameraDistance)
 	return &queuedDrawables[insertionPoint];
 }
 
-void Renderer::QueueSprite(const uint16_t* data, int8_t x, int8_t y, uint8_t halfSize, uint8_t inverseCameraDistance)
+void Renderer::QueueSprite(const uint16_t* data, int8_t x, int8_t y, uint8_t halfSize, uint8_t inverseCameraDistance, bool invert)
 {
 	if(x < -halfSize * 2)
 		return;
@@ -929,6 +1131,7 @@ void Renderer::QueueSprite(const uint16_t* data, int8_t x, int8_t y, uint8_t hal
 		drawable->y = y;
 		drawable->halfSize = halfSize;
 		drawable->inverseCameraDistance = inverseCameraDistance;
+		drawable->invert = invert;
 	}
 }
 
@@ -940,7 +1143,7 @@ void Renderer::RenderQueuedDrawables()
 		
 		if(drawable.type == DrawableType::Sprite)
 		{
-			DrawScaled(drawable.spriteData, drawable.x, drawable.y, drawable.halfSize, drawable.inverseCameraDistance);
+			DrawScaled(drawable.spriteData, drawable.x, drawable.y, drawable.halfSize, drawable.inverseCameraDistance, drawable.invert);
 		}
 		else
 		{
@@ -977,7 +1180,7 @@ bool Renderer::TransformAndCull(int16_t worldX, int16_t worldY, int16_t& outScre
 	return true;
 }
 
-void Renderer::DrawObject(const uint16_t* spriteData, int16_t x, int16_t y)
+void Renderer::DrawObject(const uint16_t* spriteData, int16_t x, int16_t y, uint8_t scale, AnchorType anchor, bool invert)
 {
 	int16_t screenX, screenW;
 
@@ -985,60 +1188,137 @@ void Renderer::DrawObject(const uint16_t* spriteData, int16_t x, int16_t y)
 	{
 		// Bit of a hack: nudge sorting closer to the camera
 		uint8_t inverseCameraDistance = (uint8_t)(screenW + 1);
+		int16_t spriteSize = (screenW * scale) / 128;
+		int8_t outY = GetHorizon(screenX);
+
+		switch (anchor)
+		{
+		case AnchorType::Floor:
+			outY += screenW - 2 * spriteSize;
+			break;
+		case AnchorType::Center:
+			outY -= spriteSize;
+			break;
+		case AnchorType::BelowCenter:
+			break;
+		case AnchorType::Ceiling:
+			outY -= screenW;
+			break;
+		}
 		
-		if(spriteData == projectileSpriteData)
-		{
-			int16_t spriteSize = screenW / 4;
-			QueueSprite(spriteData, screenX - spriteSize, GetHorizon(screenX) - spriteSize / 2, (uint8_t) spriteSize, inverseCameraDistance);
-		}
-		else if(spriteData == skeletonSpriteData)
-		{
-			int16_t spriteSize = (3 * screenW) / 4;
-			QueueSprite(spriteData, screenX - spriteSize, GetHorizon(screenX) - screenW / 2, (uint8_t) spriteSize, inverseCameraDistance);
-		}
-		else
-		{
-			int16_t spriteSize = (screenW) / 2;
-			QueueSprite(spriteData, screenX - spriteSize, GetHorizon(screenX) - spriteSize, (uint8_t) spriteSize, inverseCameraDistance);
-		}
+		QueueSprite(spriteData, screenX - spriteSize, outY, (uint8_t)spriteSize, inverseCameraDistance, invert);
 	}
 }
-
-extern uint8_t reloadTime;
 
 void Renderer::DrawWeapon()
 {
 	int x = DISPLAY_WIDTH / 2 + 22 + camera.tilt / 4;
 	int y = DISPLAY_HEIGHT - 21 - camera.bob;
+	uint8_t reloadTime = Game::player.reloadTime;
 	
 	if(reloadTime > 0)
 	{
-		DrawSprite(x - reloadTime / 3 - 1, y - reloadTime / 3 - 1, handSpriteData2, handSpriteData2_mask, 0, 0);	
+		Platform::DrawSprite(x - reloadTime / 3 - 1, y - reloadTime / 3 - 1, handSpriteData2, 0);
+		//DrawSprite(x - reloadTime / 3 - 1, y - reloadTime / 3 - 1, handSpriteData2, handSpriteData2_mask, 0, 0);	
 	}
 	else
 	{
-		DrawSprite(x + 2, y + 2, handSpriteData1, handSpriteData1_mask, 0, 0);	
+		Platform::DrawSprite(x + 2, y + 2, handSpriteData1, 0);
+		//DrawSprite(x + 2, y + 2, handSpriteData1, handSpriteData1_mask, 0, 0);	
 	}
 	
 }
 
-void ProjectileManager::Draw()
+void Renderer::DrawBackground()
 {
-	for(uint8_t n = 0; n < MAX_PROJECTILES; n++)
+	uint8_t* ptr = Platform::GetScreenBuffer();
+	uint8_t counter = 128;
+
+	while (counter--)
 	{
-		Projectile& p = projectiles[n];
-		if(p.life > 0)
-		{
-			Renderer::DrawObject(projectileSpriteData, p.x, p.y);
-		}
-	}	
+		*ptr++ = 0x55; *ptr++ = 0x00; *ptr++ = 0xaa; *ptr++ = 0x00;
+	}
+
+	counter = 128;
+	while (counter--)
+	{
+		*ptr++ = 0x55; *ptr++ = 0xff; *ptr++ = 0xaa; *ptr++ = 0xff;
+	}
+}
+
+void Renderer::DrawBar(uint8_t* screenPtr, const uint8_t* iconData, uint8_t amount, uint8_t max)
+{
+	constexpr uint8_t iconWidth = 8;
+	constexpr uint8_t barWidth = 32;
+	constexpr uint8_t unfilledBar = 0xfe;
+	constexpr uint8_t filledBar = 0xc6;
+	
+	uint8_t fillAmount = (amount * barWidth) / max;
+	uint8_t x = 0;
+
+	while (x < iconWidth)
+	{
+		screenPtr[x] = pgm_read_byte(&iconData[x]);
+		x++;
+	}
+
+	while (fillAmount--)
+	{
+		screenPtr[x++] = filledBar;
+	}
+
+	while (x < barWidth + iconWidth)
+	{
+		screenPtr[x++] = unfilledBar;
+	}
+
+	screenPtr[x++] = unfilledBar;
+	screenPtr[x] = 0;
+}
+
+void Renderer::DrawDamageIndicator()
+{
+	uint8_t* upper = Platform::GetScreenBuffer();
+	uint8_t* lower = upper + DISPLAY_WIDTH * 7;
+
+	for (int x = 1; x < DISPLAY_WIDTH - 1; x++)
+	{
+		upper[x] &= 0xfe;
+		lower[x] &= 0x7f;
+	}
+
+	uint8_t* ptr = Platform::GetScreenBuffer();
+	for (int y = 0; y < DISPLAY_HEIGHT / 8; y++)
+	{
+		*ptr = 0;
+		ptr += (DISPLAY_WIDTH - 1);
+		*ptr = 0;
+		ptr++;
+	}
+}
+
+void Renderer::DrawHUD()
+{
+	constexpr uint8_t barWidth = 40;
+	uint8_t* screenBuffer = Platform::GetScreenBuffer();
+	uint8_t* screenPtr = screenBuffer + DISPLAY_WIDTH * 6;
+
+	DrawBar(screenBuffer + DISPLAY_WIDTH * 7, heartSpriteData, Game::player.hp, Game::player.maxHP);
+	DrawBar(screenBuffer + DISPLAY_WIDTH * 6, manaSpriteData, Game::player.mana, Game::player.maxMana);
+
+	if(Game::player.damageTime > 0)
+		DrawDamageIndicator();
+
+	if (Game::displayMessage)
+		Font::PrintString(Game::displayMessage, 0, 0);
 }
 
 void Renderer::Render()
 {
+	globalRenderFrame++;
+
 	DrawBackground();
 
-	globalAnimationFrame++;
 	numBufferSlicesFilled = 0;
 	numQueuedDrawables = 0;
 	
@@ -1057,11 +1337,18 @@ void Renderer::Render()
 	camera.clipSin = FixedSin(-camera.angle + CLIP_ANGLE);
 
 	DrawCells();
+	//DrawFloorLines();
 
+	EnemyManager::Draw();
 	ProjectileManager::Draw();
 	ParticleSystemManager::Draw();
 	
 	RenderQueuedDrawables();
 	
 	DrawWeapon();
+
+	DrawHUD();
+
+	//Map::DrawMinimap();
 }
+

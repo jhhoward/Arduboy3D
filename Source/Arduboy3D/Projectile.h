@@ -1,12 +1,18 @@
 #pragma once
 
 #include <stdint.h>
+#include "Entity.h"
 
-struct Projectile
+class Projectile : public Entity
 {
-	int16_t x, y;
+public:
 	uint8_t angle;
 	uint8_t life;
+	uint8_t ownerId;
+
+	static constexpr uint8_t playerOwnerId = 0xff;
+
+	Entity* GetOwner() const;
 };
 
 class ProjectileManager
@@ -15,7 +21,8 @@ public:
 	static constexpr int MAX_PROJECTILES = 4;
 	static Projectile projectiles[MAX_PROJECTILES];
 
-	static void FireProjectile(int16_t x, int16_t y, uint8_t angle);
+	static Projectile* FireProjectile(Entity* owner, int16_t x, int16_t y, uint8_t angle);
+	static void Init();
 	static void Draw();
 	static void Update();
 };

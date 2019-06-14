@@ -1,32 +1,25 @@
 #include "Particle.h"
 #include "FixedMath.h"
+#include "Platform.h"
 
 ParticleSystem ParticleSystemManager::systems[MAX_SYSTEMS];
 
 void ParticleSystem::Init()
 {
-	for (int n = 0; n < PARTICLES_PER_SYSTEM; n++)
-	{
-		particles[n].x = -128;
-	}
+	life = 0;
 }
 
 void ParticleSystem::Step()
 {
-	isActive = false;
-	
-	for (int n = 0; n < PARTICLES_PER_SYSTEM; n++)
+	for (Particle& p : particles)
 	{
-		Particle& p = particles[n];
-
-		if (p.life > 0)
+		if (p.IsActive())
 		{
 			p.velY += gravity;
-			p.life--;
 
-			if (p.x + p.velX < -127 || p.x + p.velX > 127 || p.y + p.velY < -127 || p.life == 0)
+			if (p.x + p.velX < -127 || p.x + p.velX > 127 || p.y + p.velY < -127)
 			{
-				p.life = 0;
+				p.x = -128;
 				continue;
 			}
 
@@ -38,74 +31,55 @@ void ParticleSystem::Step()
 
 			p.x += p.velX;
 			p.y += p.velY;
-
-			isActive = true;
 		}
 	}
+	
+	life--;
 }
 
 void ParticleSystem::Draw(int x, int halfScale)
 {
 	int scale = 2 * halfScale;
 	int8_t horizon = Renderer::GetHorizon(x);
+	uint8_t colour = isWhite ? COLOUR_WHITE : COLOUR_BLACK;
 	
-	for (int n = 0; n < PARTICLES_PER_SYSTEM; n++)
+	for (Particle& p : particles)
 	{
-		Particle& p = particles[n];
-
-		if (p.life > 0)
+		if (p.IsActive())
 		{
-			//int outX = x + ((p.x * scale) >> 8);
-			//int outY = HORIZON + ((p.y * scale) >> 8);
 			int outX = x + ((p.x * scale) >> 8);
 			int outY = horizon + ((p.y * scale) >> 8);
 
 			if (outX >= 0 && outY >= 0 && outX < DISPLAY_WIDTH - 1 && outY < DISPLAY_HEIGHT - 1 && halfScale >= Renderer::wBuffer[outX])
 			{
-				PutPixel(outX, outY, COLOUR_BLACK);
-				PutPixel(outX + 1, outY, COLOUR_BLACK);
-				PutPixel(outX + 1, outY + 1, COLOUR_BLACK);
-				PutPixel(outX, outY + 1, COLOUR_BLACK);
+				Platform::PutPixel(outX, outY, colour);
+				Platform::PutPixel(outX + 1, outY, colour);
+				Platform::PutPixel(outX + 1, outY + 1, colour);
+				Platform::PutPixel(outX, outY + 1, colour);
 			}
 		}
 	}
 }
 
-void ParticleSystem::Explode(uint8_t count)
+void ParticleSystem::Explode()
 {
-	bool searchExhausted = false;
-
-	for (int n = 0; n < PARTICLES_PER_SYSTEM && count; n++)
+	for (Particle& p : particles)
 	{
-		Particle& p = particles[n];
+		p.x = (Random() & 31) - 16;
+		p.y = (Random() & 31) - 16;
 
-		if (searchExhausted || !p.IsActive())
-		{
-			p.x = (Random() & 31) - 16;
-			p.y = (Random() & 31) - 16;
-
-			p.velX = (Random() & 31) - 16;
-			p.velY = (Random() & 31) - 25;
-
-			p.life = (Random() & 15) + 6;
-			count--;
-		}
-
-		if (n == PARTICLES_PER_SYSTEM - 1 && !searchExhausted)
-		{
-			searchExhausted = true;
-			n = 0;
-		}
+		p.velX = (Random() & 31) - 16;
+		p.velY = (Random() & 31) - 25;
 	}
+	
+	life = 22;
 }
 
 void ParticleSystemManager::Draw()
 {
-	for(uint8_t n = 0; n < MAX_SYSTEMS; n++)
+	for (ParticleSystem& system : systems)
 	{
-		ParticleSystem& system = systems[n];
-		
-		if(system.isActive)
+		if(system.IsActive())
 		{
 			int16_t screenX, screenW;
 
@@ -124,33 +98,52 @@ void ParticleSystemManager::Draw()
 	}
 }
 
+void ParticleSystemManager::Init()
+{
+	for (ParticleSystem& system : systems)
+	{
+		system.Init();
+	}
+}
+
 void ParticleSystemManager::Update()
 {
-	for(uint8_t n = 0; n < MAX_SYSTEMS; n++)
+	for (ParticleSystem& system : systems)
 	{
-		ParticleSystem& system = systems[n];
-		
-		if(system.isActive)
+		if(system.IsActive())
 		{
 			system.Step();
 		}
 	}	
 }
 
-void ParticleSystemManager::CreateExplosion(int16_t worldX, int16_t worldY)
+void ParticleSystemManager::CreateExplosion(int16_t worldX, int16_t worldY, bool isWhite)
 {
-	for(uint8_t n = 0; n < MAX_SYSTEMS; n++)
+	ParticleSystem* newSystem = nullptr;
+	for(ParticleSystem& system : systems)
 	{
-		ParticleSystem& system = systems[n];
-		
-		if(!system.isActive)
+		if(!system.IsActive())
 		{
-			system.worldX = worldX;
-			system.worldY = worldY;
-			system.isActive = true;
-			system.Explode(PARTICLES_PER_SYSTEM);
-			
-			return;
+			newSystem = &system;
+			break;
 		}
 	}	
+
+	if (!newSystem)
+	{
+		newSystem = &systems[0];
+
+		for (uint8_t n = 1; n < MAX_SYSTEMS; n++)
+		{
+			if (systems[n].life < newSystem->life)
+			{
+				newSystem = &systems[n];
+			}
+		}
+	}
+
+	newSystem->worldX = worldX;
+	newSystem->worldY = worldY;
+	newSystem->isWhite = isWhite;
+	newSystem->Explode();
 }

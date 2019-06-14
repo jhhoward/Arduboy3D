@@ -1,12 +1,15 @@
 #include <Arduboy2.h>
+#include <ArduboyTones.h>
 #include "Game.h"
 #include "Draw.h"
 #include "FixedMath.h"
+#include "Platform.h"
 
 Arduboy2Base arduboy;
+ArduboyTones sound(arduboy.audio.enabled);
 Sprites sprites;
 
-uint8_t GetInput()
+uint8_t Platform::GetInput()
 {
   uint8_t result = 0;
   
@@ -38,12 +41,17 @@ uint8_t GetInput()
   return result;
 }
 
-void SetLED(uint8_t r, uint8_t g, uint8_t b)
+void Platform::PlaySound(const uint16_t* audioPattern)
+{
+	sound.tones(audioPattern);
+}
+
+void Platform::SetLED(uint8_t r, uint8_t g, uint8_t b)
 {
   arduboy.digitalWriteRGB(r ? RGB_ON : RGB_OFF, g ? RGB_ON : RGB_OFF, b ? RGB_ON : RGB_OFF);
 }
 
-void PutPixel(uint8_t x, uint8_t y, uint8_t colour)
+void Platform::PutPixel(uint8_t x, uint8_t y, uint8_t colour)
 {
   arduboy.drawPixel(x, y, colour);
 }
@@ -55,7 +63,7 @@ const uint8_t topmask_[] PROGMEM = {
 const uint8_t bottommask_[] PROGMEM = {
   0x01, 0x03, 0x07, 0x0f, 0x1f, 0x3f, 0x7f, 0xff };
 
-void DrawVLine(uint8_t x, int8_t y0_, int8_t y1_, uint8_t pattern) 
+void Platform::DrawVLine(uint8_t x, int8_t y0_, int8_t y1_, uint8_t pattern) 
 {
   uint8_t *screenptr = arduboy.getBuffer() + x;
 
@@ -93,49 +101,30 @@ void DrawVLine(uint8_t x, int8_t y0_, int8_t y1_, uint8_t pattern)
   }
 }
 
-uint8_t* GetScreenBuffer()
+uint8_t* Platform::GetScreenBuffer()
 {
   return arduboy.getBuffer();
 }
 
-
-void DrawBackground()
+void Platform::DrawSprite(int16_t x, int16_t y, const uint8_t *bitmap, uint8_t frame)
 {
-  uint8_t* ptr = arduboy.getBuffer();
-  uint8_t counter = 64;
-  
-  while(counter--)
-  {
-    *ptr++ = 0x55;  *ptr++ = 0; 
-    *ptr++ = 0x55;  *ptr++ = 0; 
-    *ptr++ = 0x55;  *ptr++ = 0; 
-    *ptr++ = 0x55;  *ptr++ = 0; 
-  }
-
-  counter = 64;
-  while(counter--)
-  {
-    *ptr++ = 0x55;  *ptr++ = 0xAA;  
-    *ptr++ = 0x55;  *ptr++ = 0xAA;  
-    *ptr++ = 0x55;  *ptr++ = 0xAA;  
-    *ptr++ = 0x55;  *ptr++ = 0xAA;
-  }
+  sprites.drawPlusMask(x, y, bitmap, frame);
 }
 
-void DrawSprite(int16_t x, int16_t y, const uint8_t *bitmap,
+void Platform::DrawSprite(int16_t x, int16_t y, const uint8_t *bitmap,
   const uint8_t *mask, uint8_t frame, uint8_t mask_frame)
 {
   sprites.drawExternalMask(x, y, bitmap, mask, frame, mask_frame);
 }
 
-void DrawBitmap(int16_t x, int16_t y, const uint8_t *bitmap)
+void Platform::DrawBitmap(int16_t x, int16_t y, const uint8_t *bitmap)
 {
   uint8_t w = pgm_read_byte(&bitmap[0]);
   uint8_t h = pgm_read_byte(&bitmap[1]);
   arduboy.drawBitmap(x, y, bitmap + 2, w, h);
 }
 
-void DrawSolidBitmap(int16_t x, int16_t y, const uint8_t *bitmap)
+void Platform::DrawSolidBitmap(int16_t x, int16_t y, const uint8_t *bitmap)
 {
   uint8_t w = pgm_read_byte(&bitmap[0]);
   uint8_t h = pgm_read_byte(&bitmap[1]);
@@ -143,42 +132,46 @@ void DrawSolidBitmap(int16_t x, int16_t y, const uint8_t *bitmap)
   arduboy.drawBitmap(x, y, bitmap + 2, w, h);
 }
 
-void FillScreen(uint8_t colour)
+void Platform::FillScreen(uint8_t colour)
 {
   arduboy.fillScreen(colour);
 }
 
-/*
-void DrawFilledRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t colour)
-{
-  arduboy.fillRect(x, y, w, h, colour);
-}
-
-void DrawRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t colour)
-{
-  arduboy.drawRect(x, y, w, h, colour);
-}
-*/
-/*
-void DrawBitmap(const uint8_t* bmp, uint8_t x, uint8_t y, uint8_t w, uint8_t h)
-{
-  arduboy.drawBitmap(x, y, bmp, w, h, WHITE);
-}*/
-
 unsigned long lastTimingSample;
+
+bool Platform::IsAudioEnabled()
+{
+	return arduboy.audio.enabled();
+}
+
+void Platform::SetAudioEnabled(bool isEnabled)
+{
+	if(isEnabled)
+		arduboy.audio.on();
+	else
+		arduboy.audio.off();
+}
+
+void Platform::ExpectLoadDelay()
+{
+	// Resets the timer so that we don't tick multiple times after a level load
+	lastTimingSample = millis();
+}
 
 void setup()
 {
   arduboy.boot();
   arduboy.flashlight();
   arduboy.systemButtons();
-  arduboy.bootLogo();
+  //arduboy.bootLogo();
   arduboy.setFrameRate(TARGET_FRAMERATE);
 
+  //arduboy.audio.off();
+  
   //Serial.begin(9600);
 
-  SeedRandom((uint16_t) arduboy.generateRandomSeed());
-  InitGame();
+//  SeedRandom((uint16_t) arduboy.generateRandomSeed());
+  Game::Init();
   
   lastTimingSample = millis();
 }
@@ -199,11 +192,11 @@ void loop()
 	constexpr int16_t frameDuration = 1000 / TARGET_FRAMERATE;
 	while(tickAccum > frameDuration)
 	{
-		TickGame();
+		Game::Tick();
 		tickAccum -= frameDuration;
 	}
 	
-	Renderer::Render();
+	Game::Draw();
     
     //Serial.write(arduboy.getBuffer(), 128 * 64 / 8);
 
