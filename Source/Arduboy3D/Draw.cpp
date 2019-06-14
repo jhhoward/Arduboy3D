@@ -199,12 +199,10 @@ void Renderer::DrawWallSegment(int16_t x1, int16_t w1, int16_t x2, int16_t w2, b
 		if (drawSlice)
 		{
 			uint8_t sliceMask = 0xff;
-			uint8_t sliceColour = wallColour;
 
 			if ((edgeLeft && x == x1) || (edgeRight && x == x2))
 			{
 				sliceMask = 0x00;
-				sliceColour = edgeColour;
 			}
 			else if (shadeSlice)
 			{
@@ -647,6 +645,8 @@ void Renderer::DrawCell(uint8_t x, uint8_t y)
 	case CellType::ChestOpened:
 		DrawObject(chestOpenSpriteData, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 75);
 		return;
+	default:
+		break;
 	}
 
 	if(numBufferSlicesFilled >= DISPLAY_WIDTH)
@@ -1116,8 +1116,8 @@ void Renderer::QueueSprite(const uint16_t* data, int8_t x, int8_t y, uint8_t hal
 {
 	if(x < -halfSize * 2)
 		return;
-	if(x >= DISPLAY_WIDTH)
-		return;
+	//if(x >= DISPLAY_WIDTH)
+	//	return;
 	//if(halfSize <= 2)
 	//	return;
 

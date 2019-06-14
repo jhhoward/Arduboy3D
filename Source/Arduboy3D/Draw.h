@@ -20,8 +20,8 @@ struct Camera
 
 enum class DrawableType : uint8_t
 {
-	Sprite,
-	ParticleSystem
+	Sprite = 0,
+	ParticleSystem = 1
 };
 
 enum class AnchorType : uint8_t

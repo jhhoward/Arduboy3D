@@ -334,7 +334,7 @@ void Enemy::Tick()
 		return;
 	}
 
-	switch (state)
+	switch ((EnemyState)state)
 	{
 	case EnemyState::Idle:
 		if (Map::IsClearLine(x, y, Game::player.x, Game::player.y))
@@ -391,8 +391,10 @@ void EnemyManager::Draw()
 		if(enemy.IsValid())
 		{
 			bool invert = enemy.GetState() == EnemyState::Stunned && (Renderer::globalRenderFrame & 1);
+			int frameOffset = (enemy.GetType() == EnemyType::Bat || enemy.GetState() == EnemyState::Moving) && (Game::globalTickFrame & 8) == 0 ? 32 : 0;
+
 			const EnemyArchetype* archetype = enemy.GetArchetype();
-			Renderer::DrawObject(archetype->GetSpriteData(), enemy.x, enemy.y, archetype->GetSpriteScale(), archetype->GetSpriteAnchor(), invert);
+			Renderer::DrawObject(archetype->GetSpriteData() + frameOffset, enemy.x, enemy.y, archetype->GetSpriteScale(), archetype->GetSpriteAnchor(), invert);
 		}
 	}
 }
@@ -415,15 +417,12 @@ void EnemyManager::SpawnEnemies()
 	{
 		for (uint8_t x = 0; x < Map::width; x++)
 		{
-			switch (Map::GetCellSafe(x, y))
+			if (Map::GetCellSafe(x, y) == CellType::Monster)
 			{
-				case CellType::Monster:
-				{
-					EnemyType type = (EnemyType)((Random() % ((int)(EnemyType::NumEnemyTypes))));
-					EnemyManager::Spawn(type, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2);
-					Map::SetCell(x, y, CellType::Empty);
-					break;
-				}
+				EnemyType type = (EnemyType)((Random() % ((int)(EnemyType::NumEnemyTypes))));
+				EnemyManager::Spawn(type, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2);
+				Map::SetCell(x, y, CellType::Empty);
+				break;
 			}
 		}
 	}

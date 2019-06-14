@@ -1,8 +1,8 @@
 // Generated from Images/enemy.png
-constexpr uint8_t skeletonSpriteData_numFrames = 1;
+constexpr uint8_t skeletonSpriteData_numFrames = 2;
 extern const uint16_t skeletonSpriteData[];
 // Generated from Images/mage.png
-constexpr uint8_t mageSpriteData_numFrames = 1;
+constexpr uint8_t mageSpriteData_numFrames = 2;
 extern const uint16_t mageSpriteData[];
 // Generated from Images/torchalt1.png
 constexpr uint8_t torchSpriteData1_numFrames = 1;
@@ -47,10 +47,10 @@ extern const uint16_t chestOpenSpriteData[];
 constexpr uint8_t potionSpriteData_numFrames = 1;
 extern const uint16_t potionSpriteData[];
 // Generated from Images/bat.png
-constexpr uint8_t batSpriteData_numFrames = 1;
+constexpr uint8_t batSpriteData_numFrames = 2;
 extern const uint16_t batSpriteData[];
 // Generated from Images/spider.png
-constexpr uint8_t spiderSpriteData_numFrames = 1;
+constexpr uint8_t spiderSpriteData_numFrames = 2;
 extern const uint16_t spiderSpriteData[];
 // Generated from Images/hand1.png
 extern const uint8_t handSpriteData1[];

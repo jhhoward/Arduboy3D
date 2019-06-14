@@ -159,19 +159,19 @@ void Menu::DrawGameOver()
 	Font::PrintInt(Game::stats.coinsCollected, 6, 48, COLOUR_WHITE);
 
 	///
-
+	int offset = (Game::globalTickFrame & 8) == 0 ? 32 : 0;
 	Font::PrintString(PSTR("KILLS:"), 2, 84, COLOUR_WHITE);
 
-	Renderer::DrawScaled(skeletonSpriteData, 66, firstRow, 9, 255);
+	Renderer::DrawScaled(skeletonSpriteData + offset, 66, firstRow, 9, 255);
 	Font::PrintInt(Game::stats.enemyKills[(int)EnemyType::Skeleton], 4, 84, COLOUR_WHITE);
 
-	Renderer::DrawScaled(mageSpriteData, 66, secondRow, 9, 255);
+	Renderer::DrawScaled(mageSpriteData + offset, 66, secondRow, 9, 255);
 	Font::PrintInt(Game::stats.enemyKills[(int)EnemyType::Mage], 6, 84, COLOUR_WHITE);
 
-	Renderer::DrawScaled(batSpriteData, 96, firstRow, 9, 255, true);
+	Renderer::DrawScaled(batSpriteData + offset, 96, firstRow, 9, 255, true);
 	Font::PrintInt(Game::stats.enemyKills[(int)EnemyType::Bat], 4, 114, COLOUR_WHITE);
 
-	Renderer::DrawScaled(spiderSpriteData, 96, secondRow, 9, 255);
+	Renderer::DrawScaled(spiderSpriteData + offset, 96, secondRow, 9, 255);
 	Font::PrintInt(Game::stats.enemyKills[(int)EnemyType::Spider], 6, 114, COLOUR_WHITE);
 
 	// Calculate final score here
