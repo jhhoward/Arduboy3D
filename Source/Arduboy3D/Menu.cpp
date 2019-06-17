@@ -16,6 +16,7 @@ void Menu::Draw()
 {
 	Platform::FillScreen(COLOUR_BLACK);
 	Font::PrintString(PSTR("CATACOMBS OF THE DAMNED"), 2, 18, COLOUR_WHITE);
+	Font::PrintString(PSTR("by @jameshhoward"), 7, 32, COLOUR_WHITE);
 	Font::PrintString(PSTR("Start"), 4, 24, COLOUR_WHITE);
 	Font::PrintString(PSTR("Sound:"), 5, 24, COLOUR_WHITE);
 

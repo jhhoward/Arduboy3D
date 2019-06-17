@@ -208,8 +208,11 @@ void Player::Tick()
 	case CellType::Potion:
 		if (hp < maxHP)
 		{
+			if (hp + potionStrength > maxHP)
+				hp = maxHP;
+			else
+				hp += potionStrength;
 			Map::SetCell(cellX, cellY, CellType::Empty);
-			hp = maxHP;
 			Platform::PlaySound(Sounds::Pickup);
 			Game::ShowMessage(PSTR("Drank a potion of healing"));
 		}

@@ -334,7 +334,7 @@ void Enemy::Tick()
 		return;
 	}
 
-	switch ((EnemyState)state)
+	switch (state)
 	{
 	case EnemyState::Idle:
 		if (Map::IsClearLine(x, y, Game::player.x, Game::player.y))

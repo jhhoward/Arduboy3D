@@ -21,6 +21,7 @@ public:
 	static constexpr uint8_t attackStrength = 10;
 	static constexpr uint8_t collisionSize = 48;
 	static constexpr uint8_t lookAheadDistance = 60;
+	static constexpr uint8_t potionStrength = 25;
 
 	uint8_t hp;
 	uint8_t mana;
