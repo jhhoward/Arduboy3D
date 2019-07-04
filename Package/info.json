@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 2,
+  "title": "Catacombs of the damned!",
+  "description": "A first person shooter inspired by the Catacomb 3D series with randomly generated levels",
+  "author": "James Howard",
+  "version": "1.0",
+  "date": "2019-07-04",
+  "genre": "Action",
+  "publisher": "",
+  "idea": "",
+  "code": "",
+  "art": "",
+  "sound": "",
+  "url": "https://github.com/jhhoward/Arduboy3D",
+  "sourceUrl": "https://github.com/jhhoward/Arduboy3D",
+  "email": "",
+  "companion": "",
+  "banner": "banner.png",
+  "screenshots": [
+    {
+      "title": "",
+      "filename": "screen1.png"
+    },
+    {
+      "title": "",
+      "filename": "screen2.png"
+    }
+  ],
+  "binaries": [
+    {
+      "title": "Catacombs of the damned!",
+      "filename": "Arduboy3D.hex",
+      "device": "Arduboy"
+    }
+  ],
+  "buttons": [
+    {
+      "control": "",
+      "action": ""
+    }
+  ],
+}
